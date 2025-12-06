@@ -77,7 +77,7 @@ A pragmatic, step-by-step plan with checkboxes you can tick off. Ordered for qui
 ## 6) Packaging
 
 - [x] Step 6.1: One-liner setup scripts
-  - `scripts/setup.ps1` to create venv, install deps, download models, verify FFmpeg
+  - `scripts/setup.ps1` to create venv, install deps, fetch models via manifest, verify FFmpeg
 - [ ] Step 6.2: Desktop packaging
   - Tauri/Electron build per OS; bundle FFmpeg or prompt user to install; include model download on first run
 - [ ] Step 6.3: Licenses and notices

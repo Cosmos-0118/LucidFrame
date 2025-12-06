@@ -1,0 +1,66 @@
+name: Compute model SHA256
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to pull assets from (e.g., v0.0.1)
+        required: true
+        default: v0.0.1
+
+jobs:
+  sha256:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch release assets
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          rel=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG)
+          echo "$rel" | jq -r '.assets[] | [.name, .browser_download_url] | @tsv' > assets.tsv
+          if [ ! -s assets.tsv ]; then
+            echo "No assets found for tag $TAG" >&2
+            exit 1
+          fi
+          mkdir -p downloads
+          while IFS=$'\t' read -r name url; do
+            echo "[get ] $name"
+            curl -L --fail -H "Authorization: Bearer $GH_TOKEN" -o "downloads/$name" "$url"
+          done < assets.tsv
+
+      - name: Compute SHA256
+        run: |
+          set -euo pipefail
+          cd downloads
+          sha256sum * > ../sha256.txt
+          cat ../sha256.txt
+
+      - name: Update manifest with hashes
+        run: |
+          set -euo pipefail
+          mapfile -t lines < sha256.txt
+          manifest=models/manifest.json
+          tmp=manifest.tmp
+          cp "$manifest" "$tmp"
+          for line in "${lines[@]}"; do
+            hash=${line%% *}
+            file=${line##*  }
+            # update entry matching .url == file
+            jq --arg file "$file" --arg hash "$hash" '(.files[] | select(.url==$file) | .sha256) = $hash' "$tmp" > "$tmp.out"
+            mv "$tmp.out" "$tmp"
+          done
+          mv "$tmp" "$manifest"
+          echo "Updated manifest:" && cat "$manifest"
+
+      - name: Upload updated manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-with-sha256
+          path: models/manifest.json
+          if-no-files-found: error

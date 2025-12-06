@@ -75,11 +75,10 @@ Download-FFmpeg
 
 Write-Host "[done] Environment ready." -ForegroundColor Green
 Write-Host "Activate with:`n`n    . $activate`n"
-Write-Host "Download model weights manually to the following paths:" -ForegroundColor Yellow
+Write-Host "Download models via manifest (recommended):" -ForegroundColor Yellow
+Write-Host "  pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/fetch_models.ps1"
+Write-Host "Files expected (paths relative to repo):"
 Write-Host "  models/realesrgan/RealESRGAN_x4plus.pth"
 Write-Host "  models/realesrgan/RealESRGAN_x2plus.pth"
 Write-Host "  models/realesrgan/RealESRGAN_x4plus_anime_6B.pth"
 Write-Host "  models/gfpgan/GFPGANv1.4.pth"
-Write-Host "Suggested sources:" -ForegroundColor Yellow
-Write-Host "  https://github.com/xinntao/Real-ESRGAN/releases"
-Write-Host "  https://github.com/TencentARC/GFPGAN/releases"
