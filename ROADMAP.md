@@ -65,13 +65,13 @@ A pragmatic, step-by-step plan with checkboxes you can tick off. Ordered for qui
 
 ## 5) Reliability & Performance
 
-- [ ] Step 5.1: Tile-based inference defaults
+- [x] Step 5.1: Tile-based inference defaults
   - Configure tile size (e.g., 200–256) and overlap to avoid seams; auto-adjust based on VRAM detection
-- [ ] Step 5.2: Caching/warm models
+- [x] Step 5.2: Caching/warm models
   - Keep models loaded between requests; reuse PyTorch device
-- [ ] Step 5.3: Resource cleanup
+- [x] Step 5.3: Resource cleanup
   - Temp folder GC; job TTL; capped concurrent jobs
-- [ ] Step 5.4: Logging & metrics
+- [x] Step 5.4: Logging & metrics
   - Basic request logs, durations, failure reasons; optional simple web dashboard for job statuses
 
 ## 6) Packaging

@@ -15,6 +15,8 @@ function App() {
   const [mode, setMode] = useState("photo");
   const [scale, setScale] = useState(2);
   const [faceRestore, setFaceRestore] = useState(false);
+  const [textSafe, setTextSafe] = useState(false);
+  const [sharpenStrength, setSharpenStrength] = useState(0);
   const [beforeUrl, setBeforeUrl] = useState("");
   const [afterUrl, setAfterUrl] = useState("");
   const [status, setStatus] = useState("Drop an image to start");
@@ -132,6 +134,8 @@ function App() {
       form.append("mode", mode);
       form.append("scale", String(scale));
       form.append("face_restore", String(faceRestore));
+      form.append("sharpen_strength", String(sharpenStrength));
+      form.append("text_mode", String(textSafe));
 
       const endpoint = `${cleanUrl(backendUrl)}/image/upscale`;
 
@@ -156,7 +160,7 @@ function App() {
         setLoading(false);
       }
     },
-    [backendUrl, faceRestore, mode, resetImagePreview, scale],
+    [backendUrl, faceRestore, mode, resetImagePreview, scale, sharpenStrength, textSafe],
   );
 
   const pollJob = useCallback(
@@ -339,6 +343,39 @@ function App() {
                   />
                   <span className="slider" />
                 </label>
+              </div>
+              <div className="control-group">
+                <span className="label">Text-safe</span>
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={textSafe}
+                    onChange={(e) => {
+                      const v = e.target.checked;
+                      setTextSafe(v);
+                      if (v) {
+                        setFaceRestore(false);
+                        if (sharpenStrength < 0.25) setSharpenStrength(0.25);
+                        setMode("photo");
+                      }
+                    }}
+                  />
+                  <span className="slider" />
+                </label>
+              </div>
+              <div className="control-group slider-group">
+                <span className="label">Sharpen</span>
+                <div className="range-field">
+                  <input
+                    type="range"
+                    min="0"
+                    max="0.6"
+                    step="0.05"
+                    value={sharpenStrength}
+                    onChange={(e) => setSharpenStrength(Number(e.target.value))}
+                  />
+                  <span className="range-value">{sharpenStrength.toFixed(2)}</span>
+                </div>
               </div>
               <div className="control-group status">
                 <span className="label">Status</span>

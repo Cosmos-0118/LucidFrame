@@ -219,6 +219,37 @@ input[type="text"]:focus {
   border-color: transparent;
 }
 
+.range-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.range-field input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.range-value {
+  min-width: 46px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.slider-group {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.slider-group .range-field {
+  width: 100%;
+}
+
+.slider-group .range-value {
+  text-align: right;
+}
+
 .dropzone {
   border: 1.5px dashed var(--border);
   background: rgba(255, 255, 255, 0.02);

@@ -5,7 +5,7 @@ import sys
 import types
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 
@@ -38,6 +38,7 @@ class DeviceInfo:
     device: torch.device
     amp: bool
     half: bool
+    vram_bytes: Optional[int] = None
 
 
 @functools.lru_cache(maxsize=1)
@@ -45,11 +46,14 @@ def get_device() -> DeviceInfo:
     # Prefer CUDA, then DirectML, then CPU
     if torch.cuda.is_available():
         device = torch.device("cuda")
-        name = torch.cuda.get_device_name(device)
+        props = torch.cuda.get_device_properties(device)
+        name = props.name
+        vram_bytes = getattr(props, "total_memory", None)
         return DeviceInfo(name=name,
                           device=device,
                           amp=True,
-                          half=config.use_fp16)
+                          half=config.use_fp16,
+                          vram_bytes=vram_bytes)
     # torch-directml exposes torch.xpu if installed; fallback to CPU when not found
     if hasattr(torch, "xpu") and torch.xpu.is_available():
         device = torch.device("xpu")
@@ -58,7 +62,8 @@ def get_device() -> DeviceInfo:
     return DeviceInfo(name="cpu",
                       device=torch.device("cpu"),
                       amp=False,
-                      half=False)
+                      half=False,
+                      vram_bytes=None)
 
 
 @dataclass
@@ -68,6 +73,30 @@ class LoadedModels:
 
 
 _models = LoadedModels()
+
+
+def _tile_defaults(device_info: DeviceInfo) -> Tuple[int, int]:
+    tile = config.tile_size
+    pad = config.tile_overlap
+
+    # Conservative reductions for lower memory devices
+    if device_info.vram_bytes:
+        gb = device_info.vram_bytes / 1e9
+        if gb < 4:
+            tile = 96
+        elif gb < 6:
+            tile = 128
+        elif gb < 8:
+            tile = 192
+        else:
+            tile = config.tile_size
+    elif device_info.name.startswith("directml"):
+        tile = min(tile, 192)
+    elif device_info.name == "cpu":
+        tile = min(tile, 128)
+
+    tile = max(64, int(tile))
+    return tile, pad
 
 
 def load_realesrgan(model_path: Path, scale: int = 4):
@@ -86,12 +115,13 @@ def load_realesrgan(model_path: Path, scale: int = 4):
                     num_block=23,
                     num_grow_ch=32,
                     scale=scale)
+    tile_size, tile_pad = _tile_defaults(device_info)
     upsampler = RealESRGANer(
         scale=scale,
         model_path=str(model_path),
         model=model,
-        tile=config.tile_size,
-        tile_pad=config.tile_overlap,
+        tile=tile_size,
+        tile_pad=tile_pad,
         pre_pad=0,
         half=device_info.half,
         device=device_info.device,
@@ -118,3 +148,22 @@ def load_gfpgan(model_path: Path):
     )
     _models.gfpgan = restorer
     return restorer
+
+
+def warm_models(scales: tuple[int, ...] = (2, 4), include_gfpgan: bool = True):
+    """Preload models to keep them resident between requests."""
+    for s in scales:
+        mp = config.models_dir / "realesrgan" / (
+            "RealESRGAN_x2plus.pth" if s == 2 else "RealESRGAN_x4plus.pth")
+        if mp.exists():
+            try:
+                load_realesrgan(mp, scale=s)
+            except Exception:
+                pass
+    if include_gfpgan:
+        gfp = config.models_dir / "gfpgan" / "GFPGANv1.4.pth"
+        if gfp.exists():
+            try:
+                load_gfpgan(gfp)
+            except Exception:
+                pass
