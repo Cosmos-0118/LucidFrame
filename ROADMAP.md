@@ -80,8 +80,8 @@ A pragmatic, step-by-step plan with checkboxes you can tick off. Ordered for qui
   - `scripts/setup.ps1` to create venv, install deps, fetch models via manifest, verify FFmpeg
 - [x] Step 6.2: Desktop packaging
   - Tauri/Electron build per OS; bundle FFmpeg or prompt user to install; include model download on first run
-- [ ] Step 6.3: Licenses and notices
-  - Include notices for Real-ESRGAN, GFPGAN, RIFE, FFmpeg
+- [x] Step 6.3: Licenses and notices
+  - Include notices for Real-ESRGAN, GFPGAN, RIFE, FFmpeg (see `NOTICES.md` and README credits)
 
 ## 7) Demo Prep
 
