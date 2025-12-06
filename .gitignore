@@ -24,6 +24,7 @@ backend.spec
 models/**/*.pth
 models/**/*.onnx
 !models/manifest.json
+gfpgan/weights/*.pth
 outputs/
 *.mp4
 *.png

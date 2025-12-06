@@ -9,6 +9,8 @@ function App() {
   const imageInputRef = useRef(null);
   const videoInputRef = useRef(null);
   const pollRef = useRef(null);
+  const statusTimerRef = useRef(null);
+  const loadingRef = useRef(false);
   const fileCacheRef = useRef({ key: "", afterBlob: null, warning: "", mp: "" });
 
   const [activeTab, setActiveTab] = useState("image");
@@ -19,6 +21,7 @@ function App() {
   const [textSafe, setTextSafe] = useState(false);
   const [sharpenStrength, setSharpenStrength] = useState(0);
   const [denoiseStrength, setDenoiseStrength] = useState(0);
+  const [brightness, setBrightness] = useState(1);
   const [autoEnhance, setAutoEnhance] = useState(false);
   const [exposure, setExposure] = useState(1);
   const [contrast, setContrast] = useState(1);
@@ -88,6 +91,7 @@ function App() {
   useEffect(() => {
     fetchHealth();
     return () => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
       if (pollRef.current) clearTimeout(pollRef.current);
       if (beforeUrl) URL.revokeObjectURL(beforeUrl);
       if (afterUrl) URL.revokeObjectURL(afterUrl);
@@ -113,6 +117,11 @@ function App() {
   const handleVideoSelect = () => videoInputRef.current?.click();
 
   const resetImagePreview = useCallback(() => {
+    if (statusTimerRef.current) {
+      clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = null;
+    }
+    loadingRef.current = false;
     if (beforeUrl) URL.revokeObjectURL(beforeUrl);
     if (afterUrl) URL.revokeObjectURL(afterUrl);
     setBeforeUrl("");
@@ -167,51 +176,85 @@ function App() {
   }, []);
 
   const resetAdvanced = useCallback(() => {
+    setBrightness(1);
     setExposure(1);
     setContrast(1);
     setSaturation(1);
     setAutoEnhance(false);
     setDenoiseStrength(0);
     setTonePreset("none");
+    setSharpenStrength(0);
+    setPresetIntensity(1);
+    setInputHint("");
   }, []);
+
+  const applyPresetValues = useCallback(
+    (preset, intensity = presetIntensity) => {
+      if (preset === "none") {
+        resetAdvanced();
+        return;
+      }
+
+      const defs = {
+        night: {
+          label: "Night fix",
+          autoEnhance: true,
+          exposure: 1.2,
+          contrast: 0.9,
+          saturation: 1.12,
+          denoise: 0.24,
+          sharpen: 0.2,
+        },
+        portrait: {
+          label: "Portrait clean",
+          autoEnhance: true,
+          exposure: 1.06,
+          contrast: 1.05,
+          saturation: 1.08,
+          denoise: 0.16,
+          sharpen: 0.16,
+        },
+        print: {
+          label: "Print-ready",
+          autoEnhance: false,
+          exposure: 1.0,
+          contrast: 1.18,
+          saturation: 0.95,
+          denoise: 0.08,
+          sharpen: 0.26,
+        },
+      };
+
+      const def = defs[preset];
+      if (!def) return;
+      setTonePreset(preset);
+      setAdvancedOpen(true);
+
+      const lerp = (target, neutral) => neutral + (target - neutral) * intensity;
+
+      setAutoEnhance(def.autoEnhance);
+      setExposure(lerp(def.exposure, 1));
+      setContrast(lerp(def.contrast, 1));
+      setSaturation(lerp(def.saturation, 1));
+      setDenoiseStrength(lerp(def.denoise, 0));
+      setSharpenStrength((v) => Math.max(v, lerp(def.sharpen, 0)));
+      setInputHint(`${def.label} preset applied` + (intensity !== 1 ? ` (intensity ${intensity.toFixed(2)})` : ""));
+    },
+    [presetIntensity, resetAdvanced],
+  );
 
   const applyTonePreset = useCallback(
     (preset) => {
-      if (preset === "none") {
-        setTonePreset("none");
-        setInputHint("");
-        return;
-      }
-      setTonePreset(preset);
-      setAdvancedOpen(true);
-      if (preset === "night") {
-        setAutoEnhance(true);
-        setExposure(1.12);
-        setContrast(0.96);
-        setSaturation(1.08);
-        setDenoiseStrength(0.2);
-        setSharpenStrength((v) => Math.max(v, 0.14));
-        setInputHint("Night fix preset applied");
-      } else if (preset === "portrait") {
-        setAutoEnhance(true);
-        setExposure(1.04);
-        setContrast(1.02);
-        setSaturation(1.03);
-        setDenoiseStrength(0.12);
-        setSharpenStrength((v) => Math.max(v, 0.1));
-        setInputHint("Portrait clean preset applied");
-      } else if (preset === "print") {
-        setAutoEnhance(false);
-        setExposure(1.0);
-        setContrast(1.12);
-        setSaturation(0.98);
-        setDenoiseStrength(0.06);
-        setSharpenStrength((v) => Math.max(v, 0.22));
-        setInputHint("Print-ready preset applied");
-      }
+      applyPresetValues(preset, presetIntensity);
     },
-    [],
+    [applyPresetValues, presetIntensity],
   );
+
+  useEffect(() => {
+    if (tonePreset !== "none") {
+      applyPresetValues(tonePreset, presetIntensity);
+    }
+  }, [applyPresetValues, presetIntensity, tonePreset]);
 
   const onImageFile = (file) => {
     if (!file) return;
@@ -230,11 +273,18 @@ function App() {
       setError("");
       setStatus("Inspecting input…");
       setLoading(true);
+      loadingRef.current = true;
+
+      if (statusTimerRef.current) {
+        clearTimeout(statusTimerRef.current);
+        statusTimerRef.current = null;
+      }
 
       const isImage = file.type.startsWith("image/");
       if (!isImage) {
         setError("Please drop an image file.");
         setLoading(false);
+        loadingRef.current = false;
         return;
       }
 
@@ -246,12 +296,14 @@ function App() {
         faceRestore,
         textSafe,
         autoEnhance,
+        brightness,
         exposure,
         contrast,
         saturation,
         denoiseStrength,
         sharpenStrength,
         tonePreset,
+        presetIntensity,
       ].join("|");
 
       if (fileCacheRef.current.key === cacheKey && fileCacheRef.current.afterBlob) {
@@ -280,6 +332,10 @@ function App() {
         setStatus("Uploading…");
       }
 
+      statusTimerRef.current = setTimeout(() => {
+        if (loadingRef.current) setStatus("Processing…");
+      }, 1200);
+
       const form = new FormData();
       form.append("file", file);
       form.append("mode", mode);
@@ -288,6 +344,7 @@ function App() {
       form.append("denoise_strength", String(denoiseStrength));
       form.append("sharpen_strength", String(sharpenStrength));
       form.append("text_mode", String(textSafe));
+      form.append("brightness", String(brightness));
       form.append("auto_enhance", String(autoEnhance));
       form.append("exposure", String(exposure));
       form.append("contrast", String(contrast));
@@ -304,10 +361,14 @@ function App() {
           const text = await response.text();
           throw new Error(text || "Request failed");
         }
+        if (statusTimerRef.current) {
+          clearTimeout(statusTimerRef.current);
+          statusTimerRef.current = null;
+        }
+        setStatus("Processing…");
         const warningHeader = response.headers.get("x-warning");
         const tileHeader = response.headers.get("x-tile");
         const mpHeader = response.headers.get("x-input-mp");
-        setStatus("Processing…");
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         setAfterUrl(url);
@@ -329,10 +390,15 @@ function App() {
         setError(err.message || "Upload failed");
         setStatus("Error");
       } finally {
+        if (statusTimerRef.current) {
+          clearTimeout(statusTimerRef.current);
+          statusTimerRef.current = null;
+        }
         setLoading(false);
+        loadingRef.current = false;
       }
     },
-    [analyzeImageFile, autoEnhance, backendUrl, contrast, denoiseStrength, exposure, faceRestore, hashFile, mode, resetImagePreview, saturation, scale, sharpenStrength, textSafe],
+    [analyzeImageFile, autoEnhance, backendUrl, brightness, contrast, denoiseStrength, exposure, faceRestore, hashFile, mode, resetImagePreview, saturation, scale, sharpenStrength, textSafe],
   );
 
   const pollJob = useCallback(
@@ -429,6 +495,7 @@ function App() {
   };
 
   const canCompare = useMemo(() => beforeUrl && afterUrl, [afterUrl, beforeUrl]);
+  const showPreviewOverlay = loading || error;
 
   return (
     <div className="page">
@@ -567,10 +634,6 @@ function App() {
                   <span className="range-value">{sharpenStrength.toFixed(2)}</span>
                 </div>
               </div>
-              <div className="control-group status">
-                <span className="label">Status</span>
-                <p className="status-text">{loading ? "Working…" : status}</p>
-              </div>
             </section>
 
             <section className="advanced">
@@ -581,10 +644,10 @@ function App() {
                 </div>
                 <div className="advanced-actions">
                   <button type="button" className="ghost small" onClick={() => setAdvancedOpen((v) => !v)}>
-                    {advancedOpen ? "Hide" : "Show"} panel
+                    {advancedOpen ? "Hide tweaks" : "Show tweaks"}
                   </button>
                   <button type="button" className="ghost small" onClick={resetAdvanced}>
-                    Reset
+                    Reset tweaks
                   </button>
                 </div>
               </div>
@@ -626,6 +689,21 @@ function App() {
                       </select>
                     </div>
                     <div className="control-group slider-group">
+                      <span className="label">Preset intensity</span>
+                      <div className="range-field">
+                        <input
+                          type="range"
+                          min="0.6"
+                          max="1.6"
+                          step="0.05"
+                          value={presetIntensity}
+                          onChange={(e) => setPresetIntensity(Number(e.target.value))}
+                          disabled={tonePreset === "none"}
+                        />
+                        <span className="range-value">{presetIntensity.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div className="control-group slider-group">
                       <span className="label">Denoise</span>
                       <div className="range-field">
                         <input
@@ -640,6 +718,20 @@ function App() {
                       </div>
                     </div>
                   <div className="control-group slider-group">
+                      <span className="label">Brightness</span>
+                      <div className="range-field">
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="1.5"
+                          step="0.05"
+                          value={brightness}
+                          onChange={(e) => setBrightness(Number(e.target.value))}
+                        />
+                        <span className="range-value">{brightness.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div className="control-group slider-group">
                     <span className="label">Exposure</span>
                     <div className="range-field">
                       <input
@@ -716,6 +808,7 @@ function App() {
               <section className="compare">
                 <div className="panel-head">
                   <span className="chip">Before / After</span>
+                  {status && <span className="meta status-pill">{status}</span>}
                   <button
                     type="button"
                     className="ghost small"
@@ -726,6 +819,14 @@ function App() {
                   </button>
                 </div>
                 <div className="compare-body">
+                  {showPreviewOverlay && (
+                    <div className="preview-overlay" role="status" aria-live="polite">
+                      {loading && <div className="preview-spinner" aria-label={status || "Processing"} />}
+                      <div className="preview-status-text">{loading ? status || "Working…" : "Error"}</div>
+                      {loading && inputHint && <div className="preview-hint">{inputHint}</div>}
+                      {error && <div className="preview-error">{error}</div>}
+                    </div>
+                  )}
                   <div className="compare-frame">
                     {loading && !afterUrl ? (
                       <div className="skeleton skeleton-img" aria-label="Loading preview" />

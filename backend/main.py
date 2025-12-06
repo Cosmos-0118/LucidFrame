@@ -5,7 +5,8 @@ import threading
 import time
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import (BackgroundTasks, FastAPI, File, Form, HTTPException,
+                     Request, UploadFile)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
@@ -114,18 +115,19 @@ def root():
 
 @app.post("/image/upscale")
 async def image_upscale(
-    file: UploadFile = File(...),
-    mode: str = "photo",
-    scale: int = 2,
-    face_restore: bool = False,
-    face_strength: float = 0.5,
-    denoise_strength: float = 0.0,
-    sharpen_strength: float = 0.0,
-    text_mode: bool = False,
-    exposure: float = 1.0,
-    contrast: float = 1.0,
-    saturation: float = 1.0,
-    auto_enhance: bool = False,
+        file: UploadFile = File(...),
+        mode: str = Form("photo"),
+        scale: int = Form(2),
+        face_restore: bool = Form(False),
+        face_strength: float = Form(0.5),
+        denoise_strength: float = Form(0.0),
+        sharpen_strength: float = Form(0.0),
+        text_mode: bool = Form(False),
+        brightness: float = Form(1.0),
+        exposure: float = Form(1.0),
+        contrast: float = Form(1.0),
+        saturation: float = Form(1.0),
+        auto_enhance: bool = Form(False),
 ):
     try:
         buf, dt, dev, meta = process_image(file,
@@ -136,16 +138,24 @@ async def image_upscale(
                                            denoise_strength=denoise_strength,
                                            sharpen_strength=sharpen_strength,
                                            text_mode=text_mode,
+                                           brightness=brightness,
                                            exposure=exposure,
                                            contrast=contrast,
                                            saturation=saturation,
                                            auto_enhance=auto_enhance)
     except ImagePipelineError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    logger.info(
+        "image_upscale params mode=%s scale=%s text_mode=%s brightness=%.3f exposure=%.3f contrast=%.3f saturation=%.3f denoise=%.3f sharpen=%.3f auto_enhance=%s",
+        mode, scale, text_mode, brightness, exposure, contrast, saturation,
+        denoise_strength, sharpen_strength, auto_enhance)
     headers = {
         "X-Process-Time": f"{dt:.3f}",
         "X-Device": dev.name,
+        "Cache-Control": "no-store",
     }
+    if meta.get("params"):
+        headers["X-Params"] = str(meta["params"])
     if meta.get("mp") is not None:
         headers["X-Input-MP"] = str(meta["mp"])
     if meta.get("tile"):
@@ -158,11 +168,11 @@ async def image_upscale(
 
 @app.post("/video/upscale")
 async def video_upscale(
-    file: UploadFile = File(...),
-    scale: int = 2,
-    face_restore: bool = False,
-    interpolate: bool = False,
-    background_tasks: BackgroundTasks = None,
+        background_tasks: BackgroundTasks,
+        file: UploadFile = File(...),
+        scale: int = Form(2),
+        face_restore: bool = Form(False),
+        interpolate: bool = Form(False),
 ):
     if jobs.running_count() >= config.max_concurrent_jobs:
         raise HTTPException(status_code=429,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import time
+import warnings
 from pathlib import Path
 from typing import Literal
 
@@ -115,11 +116,21 @@ def process_image(
     denoise_strength: float = 0.0,
     sharpen_strength: float = 0.0,
     text_mode: bool = False,
+    brightness: float = 1.0,
     exposure: float = 1.0,
     contrast: float = 1.0,
     saturation: float = 1.0,
     auto_enhance: bool = False,
 ):
+    # Silence noisy torch/vision future warnings about weights_only and pretrained flags
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore",
+                                category=FutureWarning,
+                                message=".*weights_only=False.*")
+        warnings.filterwarnings("ignore",
+                                category=UserWarning,
+                                message=".*pretrained.*deprecated.*")
+
     if scale not in (2, 4):
         raise ImagePipelineError("scale must be 2 or 4")
     mode_val = _validate_mode(mode)
@@ -132,18 +143,18 @@ def process_image(
         raise ImagePipelineError("denoise_strength must be >= 0")
     if sharpen_strength < 0:
         raise ImagePipelineError("sharpen_strength must be >= 0")
-    for name, val in (("exposure", exposure), ("contrast", contrast),
-                      ("saturation", saturation)):
-        if not 0.5 <= val <= 1.5:
-            raise ImagePipelineError(f"{name} must be between 0.5 and 1.5")
+    for name, val in (("brightness", brightness), ("exposure", exposure),
+                      ("contrast", contrast), ("saturation", saturation)):
+        if not 0.2 <= val <= 2.0:
+            raise ImagePipelineError(f"{name} must be between 0.2 and 2.0")
 
     # User-facing presets
     if auto_enhance:
         denoise_strength = max(denoise_strength, 0.12)
         sharpen_strength = max(sharpen_strength, 0.18)
-        exposure = min(max(exposure * 1.05, 0.5), 1.3)
-        contrast = min(max(contrast * 1.06, 0.5), 1.35)
-        saturation = min(max(saturation * 1.04, 0.5), 1.3)
+        exposure = min(max(exposure * 1.1, 0.2), 1.5)
+        contrast = min(max(contrast * 1.1, 0.2), 1.5)
+        saturation = min(max(saturation * 1.08, 0.2), 1.4)
 
     # Text-safe preset: avoid hallucinations and apply gentle crisping
     clamp = None
@@ -158,9 +169,9 @@ def process_image(
         sharpen_strength = min(max(sharpen_strength, 0.15), 0.35)
         clamp = 12
         blend_original = 0.15
-        exposure = min(exposure, 1.05)
-        contrast = min(contrast, 1.05)
-        saturation = min(saturation, 1.05)
+        exposure = min(exposure, 1.2)
+        contrast = min(contrast, 1.15)
+        saturation = min(saturation, 1.1)
 
     model_path = _select_model_path(mode_val, scale)
     if not model_path.exists():
@@ -184,18 +195,26 @@ def process_image(
                                 scale=scale,
                                 tile_override=tile_override)
     if face_restore:
-        # GFPGAN with RealESRGAN as background upsampler
+        # GFPGAN with RealESRGAN as background upsampler when supported; fallback if API differs.
         gfpgan = load_gfpgan(config.models_dir / "gfpgan" / "GFPGANv1.4.pth")
-        _, _, restored_img = gfpgan.enhance(
-            img,
-            has_aligned=False,
-            only_center_face=False,
-            paste_back=True,
-            weight=face_strength,
-            bg_upsampler=upsampler,
-            # match scale even though GFPGAN has its own upscale param; using 1 to keep control with bg upsampler
-            upscale=1,
-        )
+        try:
+            _, _, restored_img = gfpgan.enhance(
+                img,
+                has_aligned=False,
+                only_center_face=False,
+                paste_back=True,
+                weight=face_strength,
+                bg_upsampler=upsampler,
+                upscale=scale,
+            )
+        except TypeError:
+            _, _, restored_img = gfpgan.enhance(
+                img,
+                has_aligned=False,
+                only_center_face=False,
+                paste_back=True,
+                weight=face_strength,
+            )
         out = restored_img
     else:
         out, _ = upsampler.enhance(img, outscale=scale)
@@ -214,11 +233,30 @@ def process_image(
                          edge_mask=edge_mask,
                          blend_original=blend_original)
 
+    # Apply brightness as a final, visible gain; keeps text-safe clamps intact
+    if brightness != 1.0:
+        out = cv2.convertScaleAbs(out, alpha=float(brightness), beta=0)
+        # Gentle gamma tweak to lift/darken midtones so the change is obvious
+        gamma = 0.85 if brightness > 1.0 else 1.12
+        lut = np.array([((i / 255.0)**gamma) * 255 for i in range(256)],
+                       dtype=np.uint8)
+        out = cv2.LUT(out, lut)
+
     dt = time.time() - t0
     _, buf = cv2.imencode(".png", out)
     meta = {
         "mp": megapixels,
         "warning": warning,
         "tile": getattr(upsampler, "tile", None),
+        "params": {
+            "brightness": brightness,
+            "exposure": exposure,
+            "contrast": contrast,
+            "saturation": saturation,
+            "denoise": denoise_strength,
+            "sharpen": sharpen_strength,
+            "text_mode": text_mode,
+            "auto_enhance": auto_enhance,
+        },
     }
     return io.BytesIO(buf.tobytes()), dt, get_device(), meta
