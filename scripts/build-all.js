@@ -4,6 +4,16 @@ import path from "node:path";
 
 const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
 const root = process.cwd();
+const venvBin = path.join(
+  root,
+  ".venv",
+  process.platform === "win32" ? "Scripts" : "bin"
+);
+const venvEnv = {
+  ...process.env,
+  PATH: `${venvBin}${path.delimiter}${process.env.PATH ?? ""}`,
+  VIRTUAL_ENV: path.join(root, ".venv"),
+};
 
 const cleanTargets = [
   "frontend/dist",
@@ -22,9 +32,19 @@ function clean() {
 
 function runStep(name, args) {
   console.log(`\n[${name}] ${npmCmd} ${args.join(" ")}`);
-  const result = spawnSync(npmCmd, args, { stdio: "inherit", cwd: root });
+  const result = spawnSync(npmCmd, args, {
+    stdio: "inherit",
+    cwd: root,
+    env: venvEnv,
+    shell: process.platform === "win32",
+  });
+  if (result.error) {
+    throw new Error(`[${name}] failed to start: ${result.error.message}`);
+  }
   if (result.status !== 0) {
-    throw new Error(`[${name}] failed with exit code ${result.status ?? "unknown"}`);
+    throw new Error(
+      `[${name}] failed with exit code ${result.status ?? "unknown"}`
+    );
   }
 }
 
