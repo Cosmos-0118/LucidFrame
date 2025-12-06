@@ -495,9 +495,11 @@ function App() {
                   {[2, 4].map((value) => (
                     <button
                       key={value}
-                      className={`pill ${videoScale === value ? "active" : ""}`}
-                      onClick={() => setVideoScale(value)}
+                      className={`pill ${scale === value ? "active" : ""}`}
+                      onClick={() => setScale(value)}
                       type="button"
+                      disabled={(mode === "anime" || mode === "clean") && value === 2}
+                      title={value === 2 && (mode === "anime" || mode === "clean") ? "Only 4x is available for this mode" : undefined}
                     >
                       {value}×
                     </button>

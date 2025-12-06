@@ -103,8 +103,9 @@ def process_image(
     if scale not in (2, 4):
         raise ImagePipelineError("scale must be 2 or 4")
     mode_val = _validate_mode(mode)
-    if mode_val == "clean" and scale != 4:
-        raise ImagePipelineError("clean mode currently supports 4x only")
+    if mode_val in {"anime", "clean"} and scale != 4:
+        # Keep it reliable: anime and clean models are 4x-only
+        scale = 4
     if not 0 <= face_strength <= 1:
         raise ImagePipelineError("face_strength must be between 0 and 1")
     if denoise_strength < 0:
