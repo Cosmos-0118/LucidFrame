@@ -139,6 +139,7 @@ class LoadedModels:
 
 
 _models = LoadedModels()
+_upsamplers: dict[tuple[int, int], object] = {}
 
 
 def _tile_defaults(device_info: DeviceInfo) -> Tuple[int, int]:
@@ -165,9 +166,9 @@ def _tile_defaults(device_info: DeviceInfo) -> Tuple[int, int]:
     return tile, pad
 
 
-def load_realesrgan(model_path: Path, scale: int = 4):
-    if _models.realesrgan is not None:
-        return _models.realesrgan
+def load_realesrgan(model_path: Path,
+                    scale: int = 4,
+                    tile_override: int | None = None):
     try:
         from realesrgan import RealESRGANer  # type: ignore
         from basicsr.archs.rrdbnet_arch import RRDBNet  # type: ignore
@@ -182,6 +183,13 @@ def load_realesrgan(model_path: Path, scale: int = 4):
                     num_grow_ch=32,
                     scale=scale)
     tile_size, tile_pad = _tile_defaults(device_info)
+    if tile_override is not None:
+        tile_size = max(64, min(tile_override, tile_size))
+
+    cache_key = (scale, tile_size)
+    if cache_key in _upsamplers:
+        return _upsamplers[cache_key]
+
     upsampler = RealESRGANer(
         scale=scale,
         model_path=str(model_path),
@@ -192,6 +200,7 @@ def load_realesrgan(model_path: Path, scale: int = 4):
         half=device_info.half,
         device=device_info.device,
     )
+    _upsamplers[cache_key] = upsampler
     _models.realesrgan = upsampler
     return upsampler
 

@@ -85,18 +85,18 @@ A pragmatic, step-by-step plan with checkboxes you can tick off. Ordered for qui
 
 ## few touch up
 
-- [ ] Quick “Advanced” panel (per-request overrides)
+- [x] Quick “Advanced” panel (per-request overrides)
   - Exposure/brightness, contrast, saturation sliders (0.5–1.5x)
   - Auto-enhance preset (applies mild denoise + sharpen + gamma lift)
   - Highlight text-safe preset for documents (disable face restore, boost sharpness)
-- [ ] Tone/lighting presets
+- [x] Tone/lighting presets
   - “Night fix” (lift shadows, reduce color noise)
   - “Portrait clean” (light skin smoothing, gentle sharpen)
   - “Print-ready” (strong sharpen + neutral contrast)
-- [ ] Safeguards for wrong inputs
+- [x] Safeguards for wrong inputs
   - Detect tiny inputs and suggest upscale path; warn on huge >12MP with auto tile-downscale
   - Hash-based “same file” detection to skip re-upload and reuse cached result
-- [ ] Faster first-paint UX
+- [x] Faster first-paint UX
   - Inline tiny skeleton shimmer for previews; optimistic status updates while backend warms
 
 ## 7) Demo Prep

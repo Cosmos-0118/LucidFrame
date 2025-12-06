@@ -90,6 +90,22 @@ def _maybe_sharpen(img: np.ndarray,
     return out
 
 
+def _apply_tone(img: np.ndarray, exposure: float, contrast: float,
+                saturation: float) -> np.ndarray:
+    out = img.astype(np.float32) / 255.0
+    if exposure != 1.0:
+        out = np.clip(out * exposure, 0.0, 1.0)
+    if contrast != 1.0:
+        out = np.clip((out - 0.5) * contrast + 0.5, 0.0, 1.0)
+    if saturation != 1.0:
+        hsv = cv2.cvtColor((out * 255).astype(np.uint8), cv2.COLOR_BGR2HSV)
+        h, s, v = cv2.split(hsv)
+        s = np.clip(s.astype(np.float32) * saturation, 0, 255).astype(np.uint8)
+        hsv = cv2.merge([h, s, v])
+        out = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR) / 255.0
+    return np.clip(out * 255.0, 0, 255).astype(np.uint8)
+
+
 def process_image(
     file: UploadFile,
     mode: str = "photo",
@@ -99,6 +115,10 @@ def process_image(
     denoise_strength: float = 0.0,
     sharpen_strength: float = 0.0,
     text_mode: bool = False,
+    exposure: float = 1.0,
+    contrast: float = 1.0,
+    saturation: float = 1.0,
+    auto_enhance: bool = False,
 ):
     if scale not in (2, 4):
         raise ImagePipelineError("scale must be 2 or 4")
@@ -112,6 +132,18 @@ def process_image(
         raise ImagePipelineError("denoise_strength must be >= 0")
     if sharpen_strength < 0:
         raise ImagePipelineError("sharpen_strength must be >= 0")
+    for name, val in (("exposure", exposure), ("contrast", contrast),
+                      ("saturation", saturation)):
+        if not 0.5 <= val <= 1.5:
+            raise ImagePipelineError(f"{name} must be between 0.5 and 1.5")
+
+    # User-facing presets
+    if auto_enhance:
+        denoise_strength = max(denoise_strength, 0.12)
+        sharpen_strength = max(sharpen_strength, 0.18)
+        exposure = min(max(exposure * 1.05, 0.5), 1.3)
+        contrast = min(max(contrast * 1.06, 0.5), 1.35)
+        saturation = min(max(saturation * 1.04, 0.5), 1.3)
 
     # Text-safe preset: avoid hallucinations and apply gentle crisping
     clamp = None
@@ -126,16 +158,31 @@ def process_image(
         sharpen_strength = min(max(sharpen_strength, 0.15), 0.35)
         clamp = 12
         blend_original = 0.15
+        exposure = min(exposure, 1.05)
+        contrast = min(contrast, 1.05)
+        saturation = min(saturation, 1.05)
 
     model_path = _select_model_path(mode_val, scale)
     if not model_path.exists():
         raise ImagePipelineError(f"model not found: {model_path}")
 
     img = _load_image_bytes(file)
+    h, w = img.shape[:2]
+    megapixels = round((h * w) / 1e6, 2)
+    tile_override = None
+    warning = ""
+    if megapixels > 12.0:
+        tile_override = 128
+        warning = "Large input detected (>12MP); using smaller tiles to reduce VRAM load"
+    elif megapixels < 0.25:
+        warning = "Tiny input detected; consider 4x upscale for best quality"
+
     img = _maybe_denoise(img, denoise_strength)
     t0 = time.time()
 
-    upsampler = load_realesrgan(model_path, scale=scale)
+    upsampler = load_realesrgan(model_path,
+                                scale=scale,
+                                tile_override=tile_override)
     if face_restore:
         # GFPGAN with RealESRGAN as background upsampler
         gfpgan = load_gfpgan(config.models_dir / "gfpgan" / "GFPGANv1.4.pth")
@@ -153,6 +200,11 @@ def process_image(
     else:
         out, _ = upsampler.enhance(img, outscale=scale)
 
+    out = _apply_tone(out,
+                      exposure=exposure,
+                      contrast=contrast,
+                      saturation=saturation)
+
     if text_mode:
         edge_mask = _edge_mask(out, thresh=8)
 
@@ -164,4 +216,9 @@ def process_image(
 
     dt = time.time() - t0
     _, buf = cv2.imencode(".png", out)
-    return io.BytesIO(buf.tobytes()), dt, get_device()
+    meta = {
+        "mp": megapixels,
+        "warning": warning,
+        "tile": getattr(upsampler, "tile", None),
+    }
+    return io.BytesIO(buf.tobytes()), dt, get_device(), meta

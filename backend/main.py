@@ -122,22 +122,37 @@ async def image_upscale(
     denoise_strength: float = 0.0,
     sharpen_strength: float = 0.0,
     text_mode: bool = False,
+    exposure: float = 1.0,
+    contrast: float = 1.0,
+    saturation: float = 1.0,
+    auto_enhance: bool = False,
 ):
     try:
-        buf, dt, dev = process_image(file,
-                                     mode=mode,
-                                     scale=scale,
-                                     face_restore=face_restore,
-                                     face_strength=face_strength,
-                                     denoise_strength=denoise_strength,
-                                     sharpen_strength=sharpen_strength,
-                                     text_mode=text_mode)
+        buf, dt, dev, meta = process_image(file,
+                                           mode=mode,
+                                           scale=scale,
+                                           face_restore=face_restore,
+                                           face_strength=face_strength,
+                                           denoise_strength=denoise_strength,
+                                           sharpen_strength=sharpen_strength,
+                                           text_mode=text_mode,
+                                           exposure=exposure,
+                                           contrast=contrast,
+                                           saturation=saturation,
+                                           auto_enhance=auto_enhance)
     except ImagePipelineError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     headers = {
         "X-Process-Time": f"{dt:.3f}",
         "X-Device": dev.name,
     }
+    if meta.get("mp") is not None:
+        headers["X-Input-MP"] = str(meta["mp"])
+    if meta.get("tile"):
+        headers["X-Tile"] = str(meta["tile"])
+    if meta.get("warning"):
+        headers["X-Warning"] = meta["warning"]
+
     return StreamingResponse(buf, media_type="image/png", headers=headers)
 
 

@@ -9,6 +9,7 @@ function App() {
   const imageInputRef = useRef(null);
   const videoInputRef = useRef(null);
   const pollRef = useRef(null);
+  const fileCacheRef = useRef({ key: "", afterBlob: null, warning: "", mp: "" });
 
   const [activeTab, setActiveTab] = useState("image");
   const [backendUrl, setBackendUrl] = useState(() => getStored("lucidframe.backend", defaultBackend));
@@ -17,6 +18,15 @@ function App() {
   const [faceRestore, setFaceRestore] = useState(false);
   const [textSafe, setTextSafe] = useState(false);
   const [sharpenStrength, setSharpenStrength] = useState(0);
+  const [denoiseStrength, setDenoiseStrength] = useState(0);
+  const [autoEnhance, setAutoEnhance] = useState(false);
+  const [exposure, setExposure] = useState(1);
+  const [contrast, setContrast] = useState(1);
+  const [saturation, setSaturation] = useState(1);
+  const [tonePreset, setTonePreset] = useState("none");
+  const [presetIntensity, setPresetIntensity] = useState(1);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [inputHint, setInputHint] = useState("");
   const [beforeUrl, setBeforeUrl] = useState("");
   const [afterUrl, setAfterUrl] = useState("");
   const [status, setStatus] = useState("Drop an image to start");
@@ -86,6 +96,12 @@ function App() {
     };
   }, []); // run once
 
+  useEffect(() => {
+    if (!beforeUrl && !afterUrl && !loading) {
+      setStatus(healthLoading ? "Warming backend…" : "Drop an image to start");
+    }
+  }, [afterUrl, beforeUrl, healthLoading, loading]);
+
   const clearImageInput = () => {
     if (imageInputRef.current) imageInputRef.current.value = "";
   };
@@ -105,6 +121,7 @@ function App() {
     setStatus("Drop an image to start");
     setError("");
     setLoading(false);
+    setInputHint("");
     clearImageInput();
   }, [afterUrl, beforeUrl]);
 
@@ -121,6 +138,81 @@ function App() {
     if (pollRef.current) clearTimeout(pollRef.current);
   }, [videoOutUrl, videoSrcUrl]);
 
+  const analyzeImageFile = useCallback((file, reuseUrl) => {
+    const url = reuseUrl || URL.createObjectURL(file);
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const mp = (img.width * img.height) / 1e6;
+        let warning = "";
+        if (mp > 12) warning = "Large input (>12MP); using safer tiling";
+        else if (mp < 0.25) warning = "Tiny input; 4× recommended for better detail";
+        resolve({ width: img.width, height: img.height, mp, warning, url });
+        if (!reuseUrl) URL.revokeObjectURL(url);
+      };
+      img.onerror = () => {
+        resolve({ width: 0, height: 0, mp: 0, warning: "" });
+        if (!reuseUrl) URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    });
+  }, []);
+
+  const hashFile = useCallback(async (file) => {
+    const buf = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buf);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }, []);
+
+  const resetAdvanced = useCallback(() => {
+    setExposure(1);
+    setContrast(1);
+    setSaturation(1);
+    setAutoEnhance(false);
+    setDenoiseStrength(0);
+    setTonePreset("none");
+  }, []);
+
+  const applyTonePreset = useCallback(
+    (preset) => {
+      if (preset === "none") {
+        setTonePreset("none");
+        setInputHint("");
+        return;
+      }
+      setTonePreset(preset);
+      setAdvancedOpen(true);
+      if (preset === "night") {
+        setAutoEnhance(true);
+        setExposure(1.12);
+        setContrast(0.96);
+        setSaturation(1.08);
+        setDenoiseStrength(0.2);
+        setSharpenStrength((v) => Math.max(v, 0.14));
+        setInputHint("Night fix preset applied");
+      } else if (preset === "portrait") {
+        setAutoEnhance(true);
+        setExposure(1.04);
+        setContrast(1.02);
+        setSaturation(1.03);
+        setDenoiseStrength(0.12);
+        setSharpenStrength((v) => Math.max(v, 0.1));
+        setInputHint("Portrait clean preset applied");
+      } else if (preset === "print") {
+        setAutoEnhance(false);
+        setExposure(1.0);
+        setContrast(1.12);
+        setSaturation(0.98);
+        setDenoiseStrength(0.06);
+        setSharpenStrength((v) => Math.max(v, 0.22));
+        setInputHint("Print-ready preset applied");
+      }
+    },
+    [],
+  );
+
   const onImageFile = (file) => {
     if (!file) return;
     startImageJob(file);
@@ -135,9 +227,8 @@ function App() {
 
   const startImageJob = useCallback(
     async (file) => {
-      resetImagePreview();
       setError("");
-      setStatus("Uploading...");
+      setStatus("Inspecting input…");
       setLoading(true);
 
       const isImage = file.type.startsWith("image/");
@@ -147,17 +238,60 @@ function App() {
         return;
       }
 
+      const fileHash = await hashFile(file);
+      const cacheKey = [
+        fileHash,
+        mode,
+        scale,
+        faceRestore,
+        textSafe,
+        autoEnhance,
+        exposure,
+        contrast,
+        saturation,
+        denoiseStrength,
+        sharpenStrength,
+        tonePreset,
+      ].join("|");
+
+      if (fileCacheRef.current.key === cacheKey && fileCacheRef.current.afterBlob) {
+        const cachedAfterUrl = URL.createObjectURL(fileCacheRef.current.afterBlob);
+        const cachedBeforeUrl = URL.createObjectURL(file);
+        resetImagePreview();
+        setBeforeUrl(cachedBeforeUrl);
+        setAfterUrl(cachedAfterUrl);
+        setShowAfter(true);
+        setLoading(false);
+        setStatus("Loaded from cache (same file + settings)");
+        setInputHint(fileCacheRef.current.warning || "Skipped upload via cache");
+        return;
+      }
+
+      resetImagePreview();
+
       const beforeObjectUrl = URL.createObjectURL(file);
+      const analysis = await analyzeImageFile(file, beforeObjectUrl);
       setBeforeUrl(beforeObjectUrl);
       setShowAfter(false);
+      if (analysis.warning) {
+        setInputHint(analysis.warning);
+        setStatus(analysis.warning);
+      } else {
+        setStatus("Uploading…");
+      }
 
       const form = new FormData();
       form.append("file", file);
       form.append("mode", mode);
       form.append("scale", String(scale));
       form.append("face_restore", String(faceRestore));
+      form.append("denoise_strength", String(denoiseStrength));
       form.append("sharpen_strength", String(sharpenStrength));
       form.append("text_mode", String(textSafe));
+      form.append("auto_enhance", String(autoEnhance));
+      form.append("exposure", String(exposure));
+      form.append("contrast", String(contrast));
+      form.append("saturation", String(saturation));
 
       const endpoint = `${cleanUrl(backendUrl)}/image/upscale`;
 
@@ -170,11 +304,26 @@ function App() {
           const text = await response.text();
           throw new Error(text || "Request failed");
         }
-        setStatus("Processing...");
+        const warningHeader = response.headers.get("x-warning");
+        const tileHeader = response.headers.get("x-tile");
+        const mpHeader = response.headers.get("x-input-mp");
+        setStatus("Processing…");
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         setAfterUrl(url);
-        setStatus("Done");
+        const statusParts = ["Done"];
+        if (warningHeader) statusParts.push(warningHeader);
+        if (tileHeader) statusParts.push(`tile ${tileHeader}px`);
+        if (mpHeader) statusParts.push(`${mpHeader} MP input`);
+        setStatus(statusParts.join(" · "));
+        const mergedWarning = warningHeader || analysis.warning || "";
+        if (mergedWarning) setInputHint(mergedWarning);
+        fileCacheRef.current = {
+          key: cacheKey,
+          afterBlob: blob,
+          warning: mergedWarning,
+          mp: mpHeader || String(analysis.mp || ""),
+        };
         setShowAfter(true);
       } catch (err) {
         setError(err.message || "Upload failed");
@@ -183,7 +332,7 @@ function App() {
         setLoading(false);
       }
     },
-    [backendUrl, faceRestore, mode, resetImagePreview, scale, sharpenStrength, textSafe],
+    [analyzeImageFile, autoEnhance, backendUrl, contrast, denoiseStrength, exposure, faceRestore, hashFile, mode, resetImagePreview, saturation, scale, sharpenStrength, textSafe],
   );
 
   const pollJob = useCallback(
@@ -424,6 +573,118 @@ function App() {
               </div>
             </section>
 
+            <section className="advanced">
+              <div className="advanced-head">
+                <div>
+                  <span className="label">Advanced overrides</span>
+                  <p className="hint small">Tone tweaks apply per request and reset anytime.</p>
+                </div>
+                <div className="advanced-actions">
+                  <button type="button" className="ghost small" onClick={() => setAdvancedOpen((v) => !v)}>
+                    {advancedOpen ? "Hide" : "Show"} panel
+                  </button>
+                  <button type="button" className="ghost small" onClick={resetAdvanced}>
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              {advancedOpen && (
+                <div className="controls advanced-grid">
+                  <div className="control-group">
+                    <span className="label">Auto-enhance</span>
+                    <label className="switch">
+                      <input type="checkbox" checked={autoEnhance} onChange={(e) => setAutoEnhance(e.target.checked)} />
+                      <span className="slider" />
+                    </label>
+                  </div>
+                  <div className="control-group">
+                    <span className="label">Document preset</span>
+                    <button
+                      type="button"
+                      className="ghost small"
+                      onClick={() => {
+                        setTextSafe(true);
+                        setFaceRestore(false);
+                        setSharpenStrength((v) => (v < 0.25 ? 0.25 : v));
+                      }}
+                    >
+                      Text-safe boost
+                    </button>
+                  </div>
+                    <div className="control-group">
+                      <span className="label">Tone preset</span>
+                      <select
+                        className="select"
+                        value={tonePreset}
+                        onChange={(e) => applyTonePreset(e.target.value)}
+                      >
+                        <option value="none">None</option>
+                        <option value="night">Night fix</option>
+                        <option value="portrait">Portrait clean</option>
+                        <option value="print">Print-ready</option>
+                      </select>
+                    </div>
+                    <div className="control-group slider-group">
+                      <span className="label">Denoise</span>
+                      <div className="range-field">
+                        <input
+                          type="range"
+                          min="0"
+                          max="0.3"
+                          step="0.02"
+                          value={denoiseStrength}
+                          onChange={(e) => setDenoiseStrength(Number(e.target.value))}
+                        />
+                        <span className="range-value">{denoiseStrength.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  <div className="control-group slider-group">
+                    <span className="label">Exposure</span>
+                    <div className="range-field">
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="1.5"
+                        step="0.05"
+                        value={exposure}
+                        onChange={(e) => setExposure(Number(e.target.value))}
+                      />
+                      <span className="range-value">{exposure.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <div className="control-group slider-group">
+                    <span className="label">Contrast</span>
+                    <div className="range-field">
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="1.5"
+                        step="0.05"
+                        value={contrast}
+                        onChange={(e) => setContrast(Number(e.target.value))}
+                      />
+                      <span className="range-value">{contrast.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <div className="control-group slider-group">
+                    <span className="label">Saturation</span>
+                    <div className="range-field">
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="1.5"
+                        step="0.05"
+                        value={saturation}
+                        onChange={(e) => setSaturation(Number(e.target.value))}
+                      />
+                      <span className="range-value">{saturation.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+
             <section
               className={`dropzone ${loading ? "is-loading" : ""}`}
               onDrop={(e) => {
@@ -444,6 +705,7 @@ function App() {
                 <div className="badge">Step 4.2</div>
                 <p className="drop-title">Drop an image or click to browse</p>
                 <p className="hint">We send it to the backend and stream back a PNG.</p>
+                {inputHint && <p className="hint inline-hint">{inputHint}</p>}
                 {loading && <div className="spinner" aria-label="Processing" />}
               </div>
             </section>
@@ -465,11 +727,15 @@ function App() {
                 </div>
                 <div className="compare-body">
                   <div className="compare-frame">
-                    <img
-                      src={showAfter && afterUrl ? afterUrl : beforeUrl}
-                      alt={showAfter && afterUrl ? "After" : "Before"}
-                      className="compare-img"
-                    />
+                    {loading && !afterUrl ? (
+                      <div className="skeleton skeleton-img" aria-label="Loading preview" />
+                    ) : (
+                      <img
+                        src={showAfter && afterUrl ? afterUrl : beforeUrl}
+                        alt={showAfter && afterUrl ? "After" : "Before"}
+                        className="compare-img"
+                      />
+                    )}
                   </div>
                 </div>
               </section>
