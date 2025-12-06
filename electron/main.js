@@ -17,6 +17,7 @@ const backendPort = 8000;
 
 let backendProcess = null;
 let backendReady = false;
+let backendStartedByApp = false;
 
 async function isBackendAlive() {
   try {
@@ -42,6 +43,31 @@ async function waitForBackendReady(maxMs = 12000, intervalMs = 400) {
     await new Promise((r) => setTimeout(r, intervalMs));
   }
   return false;
+}
+
+async function stopBackend(reason = "app-exit") {
+  if (!backendProcess) return;
+  if (!backendStartedByApp) {
+    backendProcess = null;
+    backendReady = false;
+    return;
+  }
+  const proc = backendProcess;
+  backendProcess = null;
+  backendReady = false;
+  try {
+    proc.kill();
+  } catch (err) {
+    console.error("Failed to kill backend", err);
+  }
+  await new Promise((resolve) => {
+    const timer = setTimeout(resolve, 1500);
+    proc.once("exit", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+  console.log(`Backend stopped (${reason})`);
 }
 
 async function copyDir(src, dest) {
@@ -119,6 +145,7 @@ function startBackend() {
       env,
       stdio: "pipe",
     });
+    backendStartedByApp = true;
   } else {
     const pythonExe = process.env.PYTHON_PATH || "python";
     const args = [
@@ -138,6 +165,7 @@ function startBackend() {
       env,
       stdio: "pipe",
     });
+    backendStartedByApp = true;
   }
 
   const logChunk = async (prefix, buf) => {
@@ -164,6 +192,7 @@ function startBackend() {
   backendProcess.on("exit", (code) => {
     backendReady = false;
     backendProcess = null;
+    backendStartedByApp = false;
     console.warn(`Backend exited with code ${code ?? "unknown"}`);
   });
 
@@ -174,6 +203,7 @@ async function createWindow() {
   await ensureBundledResources();
   if (await isBackendAlive()) {
     backendReady = true;
+    backendStartedByApp = false;
     console.log("Reusing existing backend on port", backendPort);
   } else {
     startBackend();
@@ -220,7 +250,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
-      app.quit();
+      stopBackend("window-all-closed").finally(() => app.quit());
     }
   });
 
@@ -231,8 +261,6 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.on("before-quit", () => {
-    if (backendProcess) {
-      backendProcess.kill();
-    }
+    stopBackend("before-quit");
   });
 }
