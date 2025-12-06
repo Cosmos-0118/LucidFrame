@@ -39,6 +39,7 @@ function App() {
   const [tileSize, setTileSize] = useState(() => getStored("lucidframe.tile", "256"));
   const [useFp16, setUseFp16] = useState(() => getStored("lucidframe.fp16", "true") === "true");
   const [health, setHealth] = useState({ status: "unknown", device: "", version: "" });
+  const [healthLoading, setHealthLoading] = useState(true);
 
   useEffect(() => {
     localStorage.setItem("lucidframe.backend", backendUrl);
@@ -61,6 +62,7 @@ function App() {
   }, [useFp16]);
 
   const fetchHealth = useCallback(async () => {
+    setHealthLoading(true);
     try {
       const res = await fetch(`${cleanUrl(backendUrl)}/health`);
       if (!res.ok) throw new Error("health failed");
@@ -68,6 +70,8 @@ function App() {
       setHealth({ status: "ok", device: data.device, version: data.version, amp: data.amp, half: data.half });
     } catch (err) {
       setHealth({ status: "unreachable", device: "", version: "" });
+    } finally {
+      setHealthLoading(false);
     }
   }, [backendUrl]);
 
@@ -82,6 +86,13 @@ function App() {
     };
   }, []); // run once
 
+  const clearImageInput = () => {
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  };
+  const clearVideoInput = () => {
+    if (videoInputRef.current) videoInputRef.current.value = "";
+  };
+
   const handleImageSelect = () => imageInputRef.current?.click();
   const handleVideoSelect = () => videoInputRef.current?.click();
 
@@ -91,6 +102,10 @@ function App() {
     setBeforeUrl("");
     setAfterUrl("");
     setSlider(50);
+    setStatus("Drop an image to start");
+    setError("");
+    setLoading(false);
+    clearImageInput();
   }, [afterUrl, beforeUrl]);
 
   const resetVideoPreview = useCallback(() => {
@@ -101,15 +116,21 @@ function App() {
     setVideoJobId("");
     setVideoStatus("Drop a video to start");
     setVideoError("");
+    setVideoLoading(false);
+    clearVideoInput();
     if (pollRef.current) clearTimeout(pollRef.current);
   }, [videoOutUrl, videoSrcUrl]);
 
   const onImageFile = (file) => {
+    if (!file) return;
     startImageJob(file);
+    clearImageInput();
   };
 
   const onVideoFile = (file) => {
+    if (!file) return;
     startVideoJob(file);
+    clearVideoInput();
   };
 
   const startImageJob = useCallback(
@@ -260,7 +281,24 @@ function App() {
 
   return (
     <div className="page">
+      {healthLoading && (
+        <div className="boot-overlay" role="status" aria-live="polite">
+          <div className="boot-card">
+            <div className="spinner" aria-label="Starting backend" />
+            <p className="boot-text">Starting app & backend…</p>
+            <p className="boot-sub">This can take a few seconds while models load.</p>
+          </div>
+        </div>
+      )}
+
       <div className="chrome">
+        {health.status === "unreachable" && !healthLoading && (
+          <div className="alert soft">
+            Backend not reachable at <strong>{cleanUrl(backendUrl)}</strong>. Start the backend or update the URL, then
+            hit Refresh.
+          </div>
+        )}
+
         <header className="header">
           <div>
             <p className="eyebrow">LucidFrame · MVP</p>
@@ -278,8 +316,8 @@ function App() {
               onChange={(e) => setBackendUrl(e.target.value)}
               placeholder={defaultBackend}
             />
-            <button className="ghost" type="button" onClick={fetchHealth}>
-              Refresh health
+            <button className="ghost" type="button" onClick={fetchHealth} disabled={healthLoading}>
+              {healthLoading ? "Checking…" : "Refresh health"}
             </button>
           </div>
         </header>

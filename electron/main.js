@@ -18,6 +18,7 @@ const backendPort = 8000;
 let backendProcess = null;
 let backendReady = false;
 let backendStartedByApp = false;
+let backendBootPromise = null;
 
 async function isBackendAlive() {
   try {
@@ -122,6 +123,22 @@ async function ensureBundledResources() {
   await fs.mkdir(path.dirname(backendLogPath), { recursive: true });
 }
 
+async function bootBackend() {
+  try {
+    await ensureBundledResources();
+    if (await isBackendAlive()) {
+      backendReady = true;
+      backendStartedByApp = false;
+      console.log("Reusing existing backend on port", backendPort);
+      return;
+    }
+    startBackend();
+    await waitForBackendReady();
+  } catch (err) {
+    console.error("Backend boot failed", err);
+  }
+}
+
 function startBackend() {
   if (backendProcess) return backendProcess;
 
@@ -200,15 +217,7 @@ function startBackend() {
 }
 
 async function createWindow() {
-  await ensureBundledResources();
-  if (await isBackendAlive()) {
-    backendReady = true;
-    backendStartedByApp = false;
-    console.log("Reusing existing backend on port", backendPort);
-  } else {
-    startBackend();
-  }
-  await waitForBackendReady();
+  backendBootPromise = backendBootPromise || bootBackend();
 
   const win = new BrowserWindow({
     width: WINDOW_WIDTH,
@@ -262,5 +271,9 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on("before-quit", () => {
     stopBackend("before-quit");
+  });
+
+  app.on("will-quit", () => {
+    stopBackend("will-quit");
   });
 }

@@ -321,6 +321,12 @@ input[type="text"]:focus {
   color: #ffb3b3;
 }
 
+.alert.soft {
+  background: rgba(79, 209, 197, 0.08);
+  border-color: rgba(79, 209, 197, 0.35);
+  color: var(--text);
+}
+
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -416,14 +422,15 @@ input[type="text"]:focus {
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.02);
+  background: #0b111c;
 }
 
 .compare-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
+  background: #0b111c;
 }
 
 .compare-overlay {
@@ -511,4 +518,38 @@ button:disabled {
   .controls {
     grid-template-columns: 1fr;
   }
+}
+
+.boot-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 36, 0.82);
+  backdrop-filter: blur(6px);
+  z-index: 10;
+}
+
+.boot-card {
+  background: linear-gradient(145deg, var(--bg-2), #0e1520);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 22px;
+  display: grid;
+  gap: 8px;
+  width: min(360px, 90vw);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.boot-text {
+  margin: 0;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.boot-sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
 }

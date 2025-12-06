@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import functools
+import logging
+import os
 import sys
 import types
 from dataclasses import dataclass
@@ -31,6 +33,8 @@ def _ensure_torchvision_compat() -> None:
 
 _ensure_torchvision_compat()
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class DeviceInfo:
@@ -42,23 +46,85 @@ class DeviceInfo:
 
 
 @functools.lru_cache(maxsize=1)
-def get_device() -> DeviceInfo:
-    # Prefer CUDA, then DirectML, then CPU
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-        props = torch.cuda.get_device_properties(device)
-        name = props.name
-        vram_bytes = getattr(props, "total_memory", None)
-        return DeviceInfo(name=name,
-                          device=device,
-                          amp=True,
-                          half=config.use_fp16,
-                          vram_bytes=vram_bytes)
-    # torch-directml exposes torch.xpu if installed; fallback to CPU when not found
+def get_device(env_token: Optional[str] = None) -> DeviceInfo:
+    """Select the best available device.
+
+    Order of preference:
+    1) Explicit env override via LUCIDFRAME_DEVICE (e.g., "cuda:1", "cpu", "xpu:0").
+    2) Best CUDA device by VRAM.
+    3) DirectML/XPU if available.
+    4) CPU fallback.
+    """
+
+    # 1) Explicit override
+    preferred = os.environ.get("LUCIDFRAME_DEVICE")
+    if preferred:
+        try:
+            dev = torch.device(preferred)
+            if dev.type == "cuda" and torch.cuda.is_available():
+                idx = dev.index if dev.index is not None else torch.cuda.current_device(
+                )
+                props = torch.cuda.get_device_properties(idx)
+                return DeviceInfo(
+                    name=f"cuda:{idx} {props.name}",
+                    device=torch.device(f"cuda:{idx}"),
+                    amp=True,
+                    half=config.use_fp16,
+                    vram_bytes=getattr(props, "total_memory", None),
+                )
+            if dev.type == "xpu" and hasattr(
+                    torch, "xpu") and torch.xpu.is_available():
+                return DeviceInfo(name=str(dev),
+                                  device=dev,
+                                  amp=False,
+                                  half=False)
+            if dev.type == "cpu":
+                return DeviceInfo(name="cpu",
+                                  device=torch.device("cpu"),
+                                  amp=False,
+                                  half=False)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("LUCIDFRAME_DEVICE=%s is invalid; falling back: %s",
+                           preferred, exc)
+
+    # 2) CUDA: pick the GPU with the most VRAM to avoid tiny/default picks
+    if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+        best_idx = 0
+        best_mem = -1
+        props_best = None
+        for idx in range(torch.cuda.device_count()):
+            try:
+                props = torch.cuda.get_device_properties(idx)
+                mem = getattr(props, "total_memory", 0) or 0
+                if mem > best_mem:
+                    best_mem = mem
+                    best_idx = idx
+                    props_best = props
+            except Exception:  # noqa: BLE001
+                continue
+
+        if props_best:
+            logger.info("Selecting CUDA device cuda:%s (%s, %.2f GB)",
+                        best_idx, props_best.name, best_mem / 1e9)
+            return DeviceInfo(
+                name=f"cuda:{best_idx} {props_best.name}",
+                device=torch.device(f"cuda:{best_idx}"),
+                amp=True,
+                half=config.use_fp16,
+                vram_bytes=best_mem,
+            )
+
+    # 3) DirectML/XPU (torch-directml)
     if hasattr(torch, "xpu") and torch.xpu.is_available():
-        device = torch.device("xpu")
-        name = "directml/xpu"
-        return DeviceInfo(name=name, device=device, amp=False, half=False)
+        # torch.xpu does not expose VRAM; keep settings conservative
+        logger.info("Selecting DirectML/XPU device")
+        return DeviceInfo(name="directml/xpu",
+                          device=torch.device("xpu"),
+                          amp=False,
+                          half=False)
+
+    # 4) CPU fallback
+    logger.info("Selecting CPU device")
     return DeviceInfo(name="cpu",
                       device=torch.device("cpu"),
                       amp=False,

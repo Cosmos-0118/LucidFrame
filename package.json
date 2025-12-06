@@ -10,6 +10,7 @@
     "dev": "vite --config frontend/vite.config.js",
     "build:front": "vite build --config frontend/vite.config.js",
     "build:backend": ".\\.venv\\Scripts\\python.exe -m PyInstaller --clean --noconfirm --onefile --noconsole --name backend --distpath build/backend-dist --workpath build/backend-build --collect-submodules fastapi --collect-submodules uvicorn --collect-all backend --collect-all basicsr --collect-all realesrgan --collect-data basicsr --collect-data realesrgan --collect-binaries torch --collect-binaries torchvision --collect-binaries torchaudio --collect-binaries numba --add-data \"backend;backend\" --add-data \".venv/Lib/site-packages/basicsr;basicsr\" --add-data \".venv/Lib/site-packages/basicsr/archs;basicsr/archs\" --add-data \".venv/Lib/site-packages/realesrgan;realesrgan\" --add-data \".venv/Lib/site-packages/realesrgan/archs;realesrgan/archs\" scripts/backend_entry.py",
+    "build:all": "node scripts/build-all.js",
     "dev:electron": "cross-env ELECTRON_DEV_SERVER_URL=http://localhost:5173 electron .",
     "dist:win": "npm run build:front && electron-builder -w",
     "dist:mac": "npm run build:front && electron-builder -m",
