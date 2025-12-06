@@ -12,6 +12,13 @@ venv/
 node_modules/
 dist/
 build/
+build/backend-build/
+build/backend-dist/
+dist/*.exe
+dist/*.blockmap
+dist/win-unpacked/
+bundle-resources-*.zip
+backend.spec
 
 # Models and outputs
 models/**/*.pth

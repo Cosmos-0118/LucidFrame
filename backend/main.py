@@ -17,7 +17,7 @@ from .video_tasks import cleanup_job_dir, start_video_job
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("hyperrestore")
+logger = logging.getLogger("lucidframe")
 
 app = FastAPI(title=config.app_name, version=config.version)
 

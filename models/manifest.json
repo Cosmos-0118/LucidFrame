@@ -5,25 +5,25 @@
     {
       "name": "realesrgan/RealESRGAN_x4plus.pth",
       "size": 671764561,
-      "sha256": "<fill-after-workflow>",
+      "sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
       "url": "RealESRGAN_x4plus.pth"
     },
     {
       "name": "realesrgan/RealESRGAN_x2plus.pth",
       "size": 320178174,
-      "sha256": "<fill-after-workflow>",
+      "sha256": "49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb",
       "url": "RealESRGAN_x2plus.pth"
     },
     {
       "name": "realesrgan/RealESRGAN_x4plus_anime_6B.pth",
       "size": 179387099,
-      "sha256": "<fill-after-workflow>",
+      "sha256": "f872d837d3c90ed2e05227bed711af5671a6fd1c9f7d7e91c911a61f155e99da",
       "url": "RealESRGAN_x4plus_anime_6B.pth"
     },
     {
       "name": "gfpgan/GFPGANv1.4.pth",
       "size": 348632874,
-      "sha256": "<fill-after-workflow>",
+      "sha256": "e2cd4703ab14f4d01fd1383a8a8b266f9a5833dacee8e6a79d3bf21a1b6be5ad",
       "url": "GFPGANv1.4.pth"
     }
   ]

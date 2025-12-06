@@ -11,7 +11,7 @@ function App() {
   const pollRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState("image");
-  const [backendUrl, setBackendUrl] = useState(() => getStored("hyperrestore.backend", defaultBackend));
+  const [backendUrl, setBackendUrl] = useState(() => getStored("lucidframe.backend", defaultBackend));
   const [mode, setMode] = useState("photo");
   const [scale, setScale] = useState(2);
   const [faceRestore, setFaceRestore] = useState(false);
@@ -34,30 +34,30 @@ function App() {
   const [videoSrcUrl, setVideoSrcUrl] = useState("");
   const [videoOutUrl, setVideoOutUrl] = useState("");
 
-  const [modelDir, setModelDir] = useState(() => getStored("hyperrestore.modeldir", "models/"));
-  const [ffmpegPath, setFfmpegPath] = useState(() => getStored("hyperrestore.ffmpeg", "bin/ffmpeg.exe"));
-  const [tileSize, setTileSize] = useState(() => getStored("hyperrestore.tile", "256"));
-  const [useFp16, setUseFp16] = useState(() => getStored("hyperrestore.fp16", "true") === "true");
+  const [modelDir, setModelDir] = useState(() => getStored("lucidframe.modeldir", "models/"));
+  const [ffmpegPath, setFfmpegPath] = useState(() => getStored("lucidframe.ffmpeg", "bin/ffmpeg.exe"));
+  const [tileSize, setTileSize] = useState(() => getStored("lucidframe.tile", "256"));
+  const [useFp16, setUseFp16] = useState(() => getStored("lucidframe.fp16", "true") === "true");
   const [health, setHealth] = useState({ status: "unknown", device: "", version: "" });
 
   useEffect(() => {
-    localStorage.setItem("hyperrestore.backend", backendUrl);
+    localStorage.setItem("lucidframe.backend", backendUrl);
   }, [backendUrl]);
 
   useEffect(() => {
-    localStorage.setItem("hyperrestore.modeldir", modelDir);
+    localStorage.setItem("lucidframe.modeldir", modelDir);
   }, [modelDir]);
 
   useEffect(() => {
-    localStorage.setItem("hyperrestore.ffmpeg", ffmpegPath);
+    localStorage.setItem("lucidframe.ffmpeg", ffmpegPath);
   }, [ffmpegPath]);
 
   useEffect(() => {
-    localStorage.setItem("hyperrestore.tile", tileSize);
+    localStorage.setItem("lucidframe.tile", tileSize);
   }, [tileSize]);
 
   useEffect(() => {
-    localStorage.setItem("hyperrestore.fp16", String(useFp16));
+    localStorage.setItem("lucidframe.fp16", String(useFp16));
   }, [useFp16]);
 
   const fetchHealth = useCallback(async () => {
@@ -244,7 +244,7 @@ function App() {
     if (!afterUrl) return;
     const link = document.createElement("a");
     link.href = afterUrl;
-    link.download = "hyperrestore.png";
+    link.download = "lucidframe.png";
     link.click();
   };
 
@@ -252,7 +252,7 @@ function App() {
     if (!videoOutUrl) return;
     const link = document.createElement("a");
     link.href = videoOutUrl;
-    link.download = "hyperrestore.mp4";
+    link.download = "lucidframe.mp4";
     link.click();
   };
 
@@ -263,7 +263,7 @@ function App() {
       <div className="chrome">
         <header className="header">
           <div>
-            <p className="eyebrow">HyperRestore · MVP</p>
+            <p className="eyebrow">LucidFrame · MVP</p>
             <h1>Upscale with confidence.</h1>
             <p className="lede">Drop media, pick a mode, and let the backend do the heavy lifting.</p>
           </div>

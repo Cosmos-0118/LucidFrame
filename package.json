@@ -1,13 +1,19 @@
 {
-  "name": "hyperrestore",
+  "name": "lucidframe",
   "version": "0.1.0",
   "private": true,
   "engines": {
     "node": ">=18"
   },
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite --config frontend/vite.config.js",
-    "build": "vite build --config frontend/vite.config.js",
+    "build:front": "vite build --config frontend/vite.config.js",
+    "build:backend": ".venv/Scripts/python.exe -m PyInstaller --clean --noconfirm --onefile --noconsole --name backend --distpath build/backend-dist --workpath build/backend-build --collect-submodules fastapi --collect-submodules uvicorn --collect-all backend --collect-binaries torch --collect-binaries torchvision --collect-binaries torchaudio --collect-binaries numba --add-data \"backend;backend\" --add-data \".venv/Lib/site-packages/basicsr;basicsr\" --add-data \".venv/Lib/site-packages/realesrgan;realesrgan\" scripts/backend_entry.py",
+    "dev:electron": "cross-env ELECTRON_DEV_SERVER_URL=http://localhost:5173 electron .",
+    "dist:win": "npm run build:front && electron-builder -w",
+    "dist:mac": "npm run build:front && electron-builder -m",
+    "dist:linux": "npm run build:front && electron-builder -l",
     "preview": "vite preview --config frontend/vite.config.js"
   },
   "type": "module",
@@ -17,6 +23,45 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.0.4",
-    "vite": "^5.2.8"
+    "vite": "^5.2.8",
+    "electron": "^29.3.0",
+    "electron-builder": "^24.13.3",
+    "cross-env": "^7.0.3"
+  },
+  "build": {
+    "appId": "com.lucidframe.app",
+    "productName": "LucidFrame",
+    "files": [
+      "electron/main.js",
+      "frontend/dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "models",
+        "to": "models"
+      },
+      {
+        "from": "bin/ffmpeg.exe",
+        "to": "bin/ffmpeg.exe"
+      },
+      {
+        "from": "build/backend-dist/backend.exe",
+        "to": "backend/backend.exe"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.video"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Video"
+    }
   }
 }

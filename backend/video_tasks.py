@@ -11,7 +11,7 @@ from .config import config
 from .jobs import jobs
 from .pipelines.video import VideoPipelineError, process_video
 
-logger = logging.getLogger("hyperrestore")
+logger = logging.getLogger("lucidframe")
 
 
 def _ensure_temp(job_id: str) -> Path:

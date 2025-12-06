@@ -1,4 +1,4 @@
-# HyperRestore Implementation Roadmap
+# LucidFrame Implementation Roadmap
 
 A pragmatic, step-by-step plan with checkboxes you can tick off. Ordered for quickest demo value while keeping reliability high.
 
@@ -78,7 +78,7 @@ A pragmatic, step-by-step plan with checkboxes you can tick off. Ordered for qui
 
 - [x] Step 6.1: One-liner setup scripts
   - `scripts/setup.ps1` to create venv, install deps, fetch models via manifest, verify FFmpeg
-- [ ] Step 6.2: Desktop packaging
+- [x] Step 6.2: Desktop packaging
   - Tauri/Electron build per OS; bundle FFmpeg or prompt user to install; include model download on first run
 - [ ] Step 6.3: Licenses and notices
   - Include notices for Real-ESRGAN, GFPGAN, RIFE, FFmpeg

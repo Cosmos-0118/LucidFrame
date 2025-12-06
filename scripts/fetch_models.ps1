@@ -1,5 +1,6 @@
 param(
     [string]$Manifest = "../models/manifest.json",
+    [string]$TargetDir,
     [switch]$Force,
     [switch]$Verbose
 )
@@ -27,12 +28,14 @@ function Download-File($url, $dest) {
     Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
 }
 
-$manifest = Read-Manifest (Resolve-Path -LiteralPath $Manifest)
+$manifestPath = Resolve-Path -LiteralPath $Manifest
+$manifest = Read-Manifest $manifestPath
 $baseUrl = $manifest.base_url
 $files = $manifest.files
+$targetRoot = if ($TargetDir) { Resolve-Path -LiteralPath $TargetDir } else { Split-Path -Path $manifestPath -Parent }
 
 foreach ($f in $files) {
-    $dest = Join-Path (Split-Path -Path $Manifest -Parent) $f.name
+    $dest = Join-Path $targetRoot $f.name
     Ensure-Dir $dest
     $expected = $f.sha256
     $needs = $Force -or -not (Test-Path -LiteralPath $dest)
