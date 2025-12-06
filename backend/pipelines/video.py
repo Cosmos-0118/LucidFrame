@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 import cv2
+import numpy as np
 
 from ..config import config
 from ..model_loader import load_realesrgan
@@ -49,8 +50,40 @@ def upscale_frames(frames_dir: Path, out_dir: Path, scale: int):
 
 
 def interpolate_frames(frames_dir: Path, out_dir: Path):
-    # Placeholder: real interpolation (e.g., RIFE) can be added later
-    shutil.copytree(frames_dir, out_dir, dirs_exist_ok=True)
+    """Lightweight frame interpolation by midpoint blending.
+
+    This doubles the frame count by inserting blended mid-frames between
+    consecutive frames. It avoids external deps and is a safe fallback until a
+    full RIFE integration is added.
+    """
+
+    _ensure_dir(out_dir)
+    frame_paths = sorted(frames_dir.glob("frame_*.png"))
+    if len(frame_paths) < 2:
+        # nothing to interpolate
+        shutil.copytree(frames_dir, out_dir, dirs_exist_ok=True)
+        return
+
+    idx = 1
+    for i, frame_path in enumerate(frame_paths):
+        img = cv2.imread(str(frame_path))
+        if img is None:
+            raise VideoPipelineError(f"failed to read frame {frame_path}")
+
+        out_name = out_dir / f"frame_{idx:06d}.png"
+        cv2.imwrite(str(out_name), img)
+        idx += 1
+
+        if i + 1 < len(frame_paths):
+            nxt = cv2.imread(str(frame_paths[i + 1]))
+            if nxt is None:
+                raise VideoPipelineError(
+                    f"failed to read frame {frame_paths[i + 1]}")
+            # Midpoint blend; keep uint8
+            mid = cv2.addWeighted(img, 0.5, nxt, 0.5, 0)
+            mid_name = out_dir / f"frame_{idx:06d}.png"
+            cv2.imwrite(str(mid_name), mid)
+            idx += 1
 
 
 def assemble_video(ffmpeg_path: Path,
@@ -103,10 +136,16 @@ def process_video(input_path: Path,
     if interpolate:
         interpolate_frames(upscaled, interp)
         frames_for_output = interp
+        target_fps = 50
     else:
         frames_for_output = upscaled
+        target_fps = 25
 
-    assemble_video(ffmpeg_path, frames_for_output, input_path, output_path)
+    assemble_video(ffmpeg_path,
+                   frames_for_output,
+                   input_path,
+                   output_path,
+                   framerate=target_fps)
 
     # Cleanup raw frames to save space
     try:

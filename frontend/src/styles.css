@@ -118,6 +118,33 @@ input[type="text"] {
   transition: border-color 0.2s ease;
 }
 
+.select {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 10px;
+  outline: none;
+  min-width: 140px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.select:hover {
+  border-color: var(--accent);
+  background: rgba(79, 209, 197, 0.06);
+  box-shadow: 0 0 0 2px rgba(79, 209, 197, 0.15);
+}
+
+.select:focus {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.select option {
+  background: #0f1724;
+  color: var(--text);
+}
+
 input[type="text"]:focus {
   border-color: var(--accent);
 }

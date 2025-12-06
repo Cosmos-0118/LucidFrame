@@ -12,7 +12,7 @@ from fastapi import UploadFile
 from ..config import config
 from ..model_loader import get_device, load_gfpgan, load_realesrgan
 
-Mode = Literal["photo", "anime"]
+Mode = Literal["photo", "anime", "clean"]
 
 
 class ImagePipelineError(RuntimeError):
@@ -23,14 +23,16 @@ def _select_model_path(mode: Mode, scale: int) -> Path:
     base = config.models_dir
     if mode == "anime":
         return base / "realesrgan" / "RealESRGAN_x4plus_anime_6B.pth"
+    if mode == "clean":
+        return base / "realesrgan" / "RealESRNet_x4plus.pth"
     if scale == 2:
         return base / "realesrgan" / "RealESRGAN_x2plus.pth"
     return base / "realesrgan" / "RealESRGAN_x4plus.pth"
 
 
 def _validate_mode(mode: str) -> Mode:
-    if mode not in ("photo", "anime"):
-        raise ImagePipelineError("mode must be 'photo' or 'anime'")
+    if mode not in ("photo", "anime", "clean"):
+        raise ImagePipelineError("mode must be 'photo', 'anime', or 'clean'")
     return mode  # type: ignore[return-value]
 
 
@@ -101,6 +103,8 @@ def process_image(
     if scale not in (2, 4):
         raise ImagePipelineError("scale must be 2 or 4")
     mode_val = _validate_mode(mode)
+    if mode_val == "clean" and scale != 4:
+        raise ImagePipelineError("clean mode currently supports 4x only")
     if not 0 <= face_strength <= 1:
         raise ImagePipelineError("face_strength must be between 0 and 1")
     if denoise_strength < 0:

@@ -22,7 +22,7 @@ function App() {
   const [status, setStatus] = useState("Drop an image to start");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [slider, setSlider] = useState(50);
+  const [showAfter, setShowAfter] = useState(true);
 
   const [videoScale, setVideoScale] = useState(2);
   const [videoInterpolate, setVideoInterpolate] = useState(false);
@@ -101,7 +101,7 @@ function App() {
     if (afterUrl) URL.revokeObjectURL(afterUrl);
     setBeforeUrl("");
     setAfterUrl("");
-    setSlider(50);
+    setShowAfter(true);
     setStatus("Drop an image to start");
     setError("");
     setLoading(false);
@@ -149,6 +149,7 @@ function App() {
 
       const beforeObjectUrl = URL.createObjectURL(file);
       setBeforeUrl(beforeObjectUrl);
+      setShowAfter(false);
 
       const form = new FormData();
       form.append("file", file);
@@ -174,6 +175,7 @@ function App() {
         const url = URL.createObjectURL(blob);
         setAfterUrl(url);
         setStatus("Done");
+        setShowAfter(true);
       } catch (err) {
         setError(err.message || "Upload failed");
         setStatus("Error");
@@ -343,18 +345,19 @@ function App() {
             <section className="controls">
               <div className="control-group">
                 <span className="label">Mode</span>
-                <div className="pill-group">
-                  {["photo", "anime"].map((value) => (
-                    <button
-                      key={value}
-                      className={`pill ${mode === value ? "active" : ""}`}
-                      onClick={() => setMode(value)}
-                      type="button"
-                    >
-                      {value === "photo" ? "Photo" : "Anime"}
-                    </button>
-                  ))}
-                </div>
+                <select
+                  className="select"
+                  value={mode}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setMode(val);
+                    if (val === "clean") setScale(4); // clean mode is 4x-only
+                  }}
+                >
+                  <option value="photo">Photo</option>
+                  <option value="anime">Anime</option>
+                  <option value="clean">Clean (ESRNet 4×)</option>
+                </select>
               </div>
               <div className="control-group">
                 <span className="label">Scale</span>
@@ -451,29 +454,23 @@ function App() {
               <section className="compare">
                 <div className="panel-head">
                   <span className="chip">Before / After</span>
-                  <span className="meta">Drag the handle to reveal</span>
+                  <button
+                    type="button"
+                    className="ghost small"
+                    onClick={() => setShowAfter((v) => !v)}
+                    disabled={!afterUrl}
+                  >
+                    {showAfter ? "Show Before" : "Show After"}
+                  </button>
                 </div>
                 <div className="compare-body">
                   <div className="compare-frame">
-                    <img src={beforeUrl} alt="Before" className="compare-img" />
-                    {afterUrl && (
-                      <div className="compare-overlay" style={{ width: `${slider}%` }}>
-                        <img src={afterUrl} alt="After" className="compare-img" />
-                      </div>
-                    )}
-                    <div className="compare-handle" style={{ left: `${slider}%` }}>
-                      <span className="handle-dot" />
-                    </div>
-                  </div>
-                  {afterUrl && (
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={slider}
-                      onChange={(e) => setSlider(Number(e.target.value))}
+                    <img
+                      src={showAfter && afterUrl ? afterUrl : beforeUrl}
+                      alt={showAfter && afterUrl ? "After" : "Before"}
+                      className="compare-img"
                     />
-                  )}
+                  </div>
                 </div>
               </section>
             )}

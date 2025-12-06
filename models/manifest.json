@@ -21,10 +21,22 @@
       "url": "RealESRGAN_x4plus_anime_6B.pth"
     },
     {
+      "name": "realesrgan/RealESRNet_x4plus.pth",
+      "size": 67040989,
+      "sha256": "a820b9bde89a874d7599d545567308ce6c128fc8754a53208eda016d40aa81df",
+      "url": "RealESRNet_x4plus.pth"
+    },
+    {
       "name": "gfpgan/GFPGANv1.4.pth",
       "size": 348632874,
       "sha256": "e2cd4703ab14f4d01fd1383a8a8b266f9a5833dacee8e6a79d3bf21a1b6be5ad",
       "url": "GFPGANv1.4.pth"
+    },
+    {
+      "name": "rife/rife47.pth",
+      "size": 21344827,
+      "sha256": "6a8a825ab2750558bdd20dcced386fd82b7222c7ba58c11d3b611d9c44f1be63",
+      "url": "rife47.pth"
     }
   ]
 }

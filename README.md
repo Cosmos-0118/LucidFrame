@@ -4,8 +4,8 @@ Offline-first image and video upscaler with Real-ESRGAN + GFPGAN, packaged for d
 
 ## Features
 
-- Image upscale with before/after reveal slider (2x/4x, photo/anime, optional face restore, sharpen/text-safe).
-- Video upscale jobs with polling, optional face restore/interpolation toggle, preview and download.
+- Image upscale with before/after reveal slider (2x/4x, photo/anime/clean, optional face restore, sharpen/text-safe). Clean mode uses ESRNet for lower-artifact 4x.
+- Video upscale jobs with polling, optional face restore/interpolation toggle, preview and download. Interpolation currently inserts blended mid-frames (no external deps) and doubles FPS.
 - GPU auto-selection with CUDA preference and FP16 toggle; falls back to DirectML/CPU.
 - Packaged builds include backend exe, models folder, and ffmpeg binary.
 
