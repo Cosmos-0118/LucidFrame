@@ -1,0 +1,8 @@
+fastapi==0.110.0
+uvicorn[standard]==0.30.1
+pydantic==2.7.1
+numpy==1.26.4
+opencv-python==4.9.0.80
+tqdm==4.66.4
+requests==2.32.2
+# Torch and addons are installed via setup_env.ps1 with the right build (CUDA/CPU/DirectML/ROCm where applicable).

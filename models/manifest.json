@@ -1,0 +1,40 @@
+{
+  "models": [
+    {
+      "name": "RealESRGAN_x4plus.pth",
+      "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/RealESRGAN_x4plus.pth",
+      "sha256": null,
+      "path": "models/realesrgan/RealESRGAN_x4plus.pth"
+    },
+    {
+      "name": "RealESRNet_x4plus.pth",
+      "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/RealESRNet_x4plus.pth",
+      "sha256": null,
+      "path": "models/realesrgan/RealESRNet_x4plus.pth"
+    },
+    {
+      "name": "RealESRGAN_x4plus_anime_6B.pth",
+      "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/RealESRGAN_x4plus_anime_6B.pth",
+      "sha256": null,
+      "path": "models/realesrgan/RealESRGAN_x4plus_anime_6B.pth"
+    },
+    {
+      "name": "RealESRGAN_x2plus.pth",
+      "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/RealESRGAN_x2plus.pth",
+      "sha256": null,
+      "path": "models/realesrgan/RealESRGAN_x2plus.pth"
+    },
+    {
+      "name": "GFPGANv1.4.pth",
+      "url": "https://github.com/TencentARC/GFPGAN/releases/download/v1.4.0/GFPGANv1.4.pth",
+      "sha256": null,
+      "path": "models/gfpgan/GFPGANv1.4.pth"
+    },
+    {
+      "name": "rife47.pth",
+      "url": "https://huggingface.co/lllyasviel/Annotators/resolve/main/rife47.pth?download=1",
+      "sha256": null,
+      "path": "models/rife/rife47.pth"
+    }
+  ]
+}

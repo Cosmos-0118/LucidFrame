@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+.env
+.venv/
+venv/
+
+# Node/Frontend
+node_modules/
+dist/
+build/
+
+# Models and outputs
+models/**/*.pth
+models/**/*.onnx
+!models/manifest.json
+outputs/
+*.mp4
+*.png
+*.jpg
+*.jpeg
+
+# Binaries
+bin/ffmpeg.exe
+bin/*.zip
+
+# Temp data
+.data/
+data/tmp/
+*.log
+*.tmp
+
+# OS/Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

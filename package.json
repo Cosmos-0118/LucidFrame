@@ -1,0 +1,12 @@
+{
+  "name": "hyperrestore",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "echo \"frontend dev placeholder\"",
+    "build": "echo \"frontend build placeholder\""
+  }
+}
