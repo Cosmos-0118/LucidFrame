@@ -447,47 +447,33 @@ function App() {
 
             {error && <div className="alert">{error}</div>}
 
-            <section className="gallery">
-              <div className="panel">
-                <div className="panel-head">
-                  <span className="chip">Before</span>
-                  <span className="meta">Drag file to preview</span>
-                </div>
-                <div className="panel-body">
-                  {beforeUrl ? <img src={beforeUrl} alt="Before" /> : <p className="placeholder">No image yet</p>}
-                </div>
-              </div>
-              <div className="panel">
-                <div className="panel-head">
-                  <span className="chip">After</span>
-                  <span className="meta">Processed output</span>
-                </div>
-                <div className="panel-body">
-                  {afterUrl ? <img src={afterUrl} alt="After" /> : <p className="placeholder">Run a job to see results</p>}
-                </div>
-              </div>
-            </section>
-
-            {canCompare && (
+            {beforeUrl && (
               <section className="compare">
                 <div className="panel-head">
                   <span className="chip">Before / After</span>
-                  <span className="meta">Slide to inspect differences</span>
+                  <span className="meta">Drag the handle to reveal</span>
                 </div>
                 <div className="compare-body">
                   <div className="compare-frame">
                     <img src={beforeUrl} alt="Before" className="compare-img" />
-                    <div className="compare-overlay" style={{ width: `${slider}%` }}>
-                      <img src={afterUrl} alt="After" className="compare-img" />
+                    {afterUrl && (
+                      <div className="compare-overlay" style={{ width: `${slider}%` }}>
+                        <img src={afterUrl} alt="After" className="compare-img" />
+                      </div>
+                    )}
+                    <div className="compare-handle" style={{ left: `${slider}%` }}>
+                      <span className="handle-dot" />
                     </div>
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={slider}
-                    onChange={(e) => setSlider(Number(e.target.value))}
-                  />
+                  {afterUrl && (
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={slider}
+                      onChange={(e) => setSlider(Number(e.target.value))}
+                    />
+                  )}
                 </div>
               </section>
             )}

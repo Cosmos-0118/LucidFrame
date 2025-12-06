@@ -440,6 +440,25 @@ input[type="text"]:focus {
   border-right: 2px solid var(--accent);
 }
 
+.compare-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  transform: translateX(-1px);
+  display: grid;
+  place-items: center;
+}
+
+.compare-handle .handle-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 209, 197, 0.25);
+}
+
 .compare input[type="range"] {
   accent-color: var(--accent);
 }
