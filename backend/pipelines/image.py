@@ -28,6 +28,12 @@ def _select_model_path(mode: Mode, scale: int) -> Path:
     return base / "realesrgan" / "RealESRGAN_x4plus.pth"
 
 
+def _validate_mode(mode: str) -> Mode:
+    if mode not in ("photo", "anime"):
+        raise ImagePipelineError("mode must be 'photo' or 'anime'")
+    return mode  # type: ignore[return-value]
+
+
 def _load_image_bytes(file: UploadFile) -> np.ndarray:
     data = file.file.read()
     arr = np.frombuffer(data, np.uint8)
@@ -37,17 +43,36 @@ def _load_image_bytes(file: UploadFile) -> np.ndarray:
     return img
 
 
-def process_image(file: UploadFile,
-                  mode: Mode = "photo",
-                  scale: int = 2,
-                  face_restore: bool = False):
+def _maybe_denoise(img: np.ndarray, strength: float) -> np.ndarray:
+    if strength <= 0:
+        return img
+    # Map 0..1 strength to OpenCV h parameters (conservative)
+    h = max(3, int(10 * min(strength, 1.0)))
+    return cv2.fastNlMeansDenoisingColored(img, None, h, h, 7, 21)
+
+
+def process_image(
+    file: UploadFile,
+    mode: str = "photo",
+    scale: int = 2,
+    face_restore: bool = False,
+    face_strength: float = 0.5,
+    denoise_strength: float = 0.0,
+):
     if scale not in (2, 4):
         raise ImagePipelineError("scale must be 2 or 4")
-    model_path = _select_model_path(mode, scale)
+    mode_val = _validate_mode(mode)
+    if not 0 <= face_strength <= 1:
+        raise ImagePipelineError("face_strength must be between 0 and 1")
+    if denoise_strength < 0:
+        raise ImagePipelineError("denoise_strength must be >= 0")
+
+    model_path = _select_model_path(mode_val, scale)
     if not model_path.exists():
         raise ImagePipelineError(f"model not found: {model_path}")
 
     img = _load_image_bytes(file)
+    img = _maybe_denoise(img, denoise_strength)
     t0 = time.time()
 
     upsampler = load_realesrgan(model_path, scale=scale)
@@ -59,7 +84,7 @@ def process_image(file: UploadFile,
             has_aligned=False,
             only_center_face=False,
             paste_back=True,
-            weight=0.5,
+            weight=face_strength,
             bg_upsampler=upsampler,
             # match scale even though GFPGAN has its own upscale param; using 1 to keep control with bg upsampler
             upscale=1,

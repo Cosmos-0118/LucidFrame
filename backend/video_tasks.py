@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import shutil
-import uuid
 from pathlib import Path
 
 from fastapi import UploadFile
 
 from .config import config
 from .jobs import jobs
+from .pipelines.video import VideoPipelineError, process_video
 
 
 def _ensure_temp(job_id: str) -> Path:
@@ -21,23 +21,30 @@ def start_video_job(file: UploadFile, scale: int, face_restore: bool,
     job = jobs.create("video", message="queued")
     job_dir = _ensure_temp(job.id)
     try:
-        # Save upload to disk
         ext = Path(file.filename or "video").suffix or ".mp4"
         input_path = job_dir / f"input{ext}"
         with input_path.open("wb") as f:
             shutil.copyfileobj(file.file, f)
 
-        # Placeholder processing: copy input to output
         output_path = job_dir / "output.mp4"
-        shutil.copyfile(input_path, output_path)
+        jobs.update(job.id, status="running", message="processing")
 
+        process_video(input_path,
+                      output_path,
+                      scale=scale,
+                      interpolate=interpolate)
         jobs.update(job.id,
                     status="completed",
-                    message="video processing placeholder",
+                    message="done",
                     result_path=str(output_path))
+    except VideoPipelineError as exc:
+        jobs.update(job.id, status="failed", message=str(exc))
+        try:
+            shutil.rmtree(job_dir)
+        except Exception:
+            pass
     except Exception as exc:  # noqa: BLE001
         jobs.update(job.id, status="failed", message=str(exc))
-        # best-effort cleanup
         try:
             shutil.rmtree(job_dir)
         except Exception:

@@ -6,7 +6,17 @@
     "node": ">=18"
   },
   "scripts": {
-    "dev": "echo \"frontend dev placeholder\"",
-    "build": "echo \"frontend build placeholder\""
+    "dev": "vite --config frontend/vite.config.js",
+    "build": "vite build --config frontend/vite.config.js",
+    "preview": "vite preview --config frontend/vite.config.js"
+  },
+  "type": "module",
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
+    "vite": "^5.2.8"
   }
 }

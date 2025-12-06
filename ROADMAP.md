@@ -43,24 +43,24 @@ A pragmatic, step-by-step plan with checkboxes you can tick off. Ordered for qui
 
 ## 3) Core ML Pipelines
 
-- [ ] Step 3.1: Image pipeline module `backend/pipelines/image.py`
+- [x] Step 3.1: Image pipeline module `backend/pipelines/image.py`
   - Load Real-ESRGAN model by preset; optional denoise/deblock strength; optional GFPGAN face restore blend
-- [ ] Step 3.2: Face restore integration
+- [x] Step 3.2: Face restore integration
   - Run GFPGAN on detected faces; blend back into upscaled image; expose strength parameter (0–1)
-- [ ] Step 3.3: Video pipeline module `backend/pipelines/video.py`
+- [x] Step 3.3: Video pipeline module `backend/pipelines/video.py`
   - Frame extraction, batch processing, progress callback; supports tile processing to fit VRAM
-- [ ] Step 3.4: Interpolation (later)
+- [x] Step 3.4: Interpolation (later)
   - Add RIFE step guarded by flag; skip for MVP if time is short
 
 ## 4) Frontend (Tauri/Electron + React/Svelte)
 
-- [ ] Step 4.1: App shell
+- [x] Step 4.1: App shell
   - Drag-and-drop area; mode selectors (Photo/Anime, 2x/4x), face toggle; backend URL config
-- [ ] Step 4.2: Image flow UI
+- [x] Step 4.2: Image flow UI
   - Upload, show spinner, then before/after slider; download button
-- [ ] Step 4.3: Video flow UI
+- [x] Step 4.3: Video flow UI
   - Upload, start job, show progress + ETA; side-by-side player using preview clip; download final when ready
-- [ ] Step 4.4: Settings
+- [x] Step 4.4: Settings
   - Model directory path, FFmpeg path, GPU/CPU status, tile size, FP16 toggle
 
 ## 5) Reliability & Performance

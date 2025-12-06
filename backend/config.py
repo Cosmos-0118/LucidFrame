@@ -12,6 +12,10 @@ class AppConfig(BaseModel):
     tile_size: int = 256
     tile_overlap: int = 16
     use_fp16: bool = True
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
 
 
 config = AppConfig()

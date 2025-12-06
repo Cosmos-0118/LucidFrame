@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import functools
+import sys
+import types
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -8,6 +10,26 @@ from typing import Optional
 import torch
 
 from .config import config
+
+
+# Provide compatibility shim for basicsr expecting torchvision.transforms.functional_tensor
+def _ensure_torchvision_compat() -> None:
+    """Shim for basicsr expecting torchvision.transforms.functional_tensor.rgb_to_grayscale."""
+    module_name = "torchvision.transforms.functional_tensor"
+    if module_name in sys.modules:
+        return
+    try:
+        from torchvision.transforms import functional as F  # type: ignore
+    except Exception:
+        return
+    if not hasattr(F, "rgb_to_grayscale"):
+        return
+    shim = types.ModuleType(module_name)
+    shim.rgb_to_grayscale = F.rgb_to_grayscale  # type: ignore[attr-defined]
+    sys.modules[module_name] = shim
+
+
+_ensure_torchvision_compat()
 
 
 @dataclass
