@@ -81,7 +81,7 @@ async function ensureBundledResources() {
     await fs.copyFile(bundledFfmpeg, targetFfmpeg);
   }
 
-  if (existsSync(bundledBackendExe) && !existsSync(targetBackendExe)) {
+  if (existsSync(bundledBackendExe)) {
     await fs.mkdir(targetBackendDir, { recursive: true });
     await fs.copyFile(bundledBackendExe, targetBackendExe);
   }
