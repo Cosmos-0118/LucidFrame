@@ -33,9 +33,9 @@ Offline-first image and video upscaler with Real-ESRGAN + GFPGAN, packaged for d
 
 ## Credits & Notices
 
-- Real-ESRGAN (MIT): https://github.com/xinntao/Real-ESRGAN
+- Real-ESRGAN (BSD 3-Clause License): https://github.com/xinntao/Real-ESRGAN
 - GFPGAN (Apache-2.0): https://github.com/TencentARC/GFPGAN
-- RIFE (Apache-2.0): https://github.com/megvii-research/ECCV2022-RIFE
-- FFmpeg (LGPL/GPL): https://ffmpeg.org/ (binary from https://github.com/BtbN/FFmpeg-Builds)
+- RIFE (MIT): https://github.com/megvii-research/ECCV2022-RIFE
+- FFmpeg (MIT): https://ffmpeg.org/ (binary from https://github.com/BtbN/FFmpeg-Builds)
 
 See `NOTICES.md` for the consolidated notices and licensing details.
