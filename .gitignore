@@ -35,6 +35,7 @@ outputs/
 
 # Binaries
 bin/ffmpeg.exe
+bin/waifu2x-ncnn-vulkan.exe
 bin/*.zip
 
 # Temp data

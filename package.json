@@ -48,6 +48,10 @@
         "to": "bin/ffmpeg.exe"
       },
       {
+        "from": "bin/waifu2x-ncnn-vulkan.exe",
+        "to": "bin/waifu2x-ncnn-vulkan.exe"
+      },
+      {
         "from": "build/backend-dist/backend.exe",
         "to": "backend/backend.exe"
       }
