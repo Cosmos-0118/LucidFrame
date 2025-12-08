@@ -36,6 +36,7 @@ outputs/
 # Binaries
 bin/ffmpeg.exe
 bin/waifu2x-ncnn-vulkan.exe
+bin/tbb12.dll
 bin/*.zip
 
 # Temp data

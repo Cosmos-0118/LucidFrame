@@ -19,7 +19,7 @@ def _env_bool(key: str, default: bool) -> bool:
 
 class AppConfig(BaseModel):
     app_name: str = "lucidframe-backend"
-    version: str = "1.0.0"
+    version: str = "1.1.0"
     models_dir: Path = _env_path(
         "LUCIDFRAME_MODELS",
         Path(__file__).resolve().parent.parent / "models")

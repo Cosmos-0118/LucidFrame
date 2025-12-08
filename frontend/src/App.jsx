@@ -1,4 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import Header from "./components/Header";
+import Tabs from "./components/Tabs";
+import ImageControls from "./components/ImageControls";
+import ImageDropzone from "./components/ImageDropzone";
+import ImageCompare from "./components/ImageCompare";
+import VideoControls from "./components/VideoControls";
+import VideoDropzone from "./components/VideoDropzone";
+import VideoPanels from "./components/VideoPanels";
+import SettingsPanel from "./components/SettingsPanel";
 
 const defaultBackend = "http://localhost:8000";
 
@@ -186,6 +195,12 @@ function App() {
     setSharpenStrength(0);
     setPresetIntensity(1);
     setInputHint("");
+  }, []);
+
+  const applyDocumentPreset = useCallback(() => {
+    setTextSafe(true);
+    setFaceRestore(false);
+    setSharpenStrength((v) => (v < 0.25 ? 0.25 : v));
   }, []);
 
   const applyPresetValues = useCallback(
@@ -494,9 +509,6 @@ function App() {
     link.click();
   };
 
-  const canCompare = useMemo(() => beforeUrl && afterUrl, [afterUrl, beforeUrl]);
-  const showPreviewOverlay = loading || error;
-
   return (
     <div className="page">
       {healthLoading && (
@@ -517,329 +529,65 @@ function App() {
           </div>
         )}
 
-        <header className="header">
-          <div>
-            <p className="eyebrow">LucidFrame · MVP</p>
-            <h1>Upscale with confidence.</h1>
-            <p className="lede">Drop media, pick a mode, and let the backend do the heavy lifting.</p>
-          </div>
-          <div className="backend">
-            <label className="label" htmlFor="backend-url">
-              Backend URL
-            </label>
-            <input
-              id="backend-url"
-              type="text"
-              value={backendUrl}
-              onChange={(e) => setBackendUrl(e.target.value)}
-              placeholder={defaultBackend}
-            />
-            <button className="ghost" type="button" onClick={fetchHealth} disabled={healthLoading}>
-              {healthLoading ? "Checking…" : "Refresh health"}
-            </button>
-          </div>
-        </header>
+        <Header
+          backendUrl={backendUrl}
+          setBackendUrl={setBackendUrl}
+          fetchHealth={fetchHealth}
+          healthLoading={healthLoading}
+        />
 
-        <div className="tabs">
-          {[
-            { key: "image", label: "Image" },
-            { key: "video", label: "Video" },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              className={`tab ${activeTab === tab.key ? "active" : ""}`}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <Tabs activeTab={activeTab} onChange={setActiveTab} />
 
         {activeTab === "image" && (
           <>
-            <section className="controls">
-              <div className="control-group">
-                <span className="label">Mode</span>
-                <select
-                  className="select"
-                  value={mode}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setMode(val);
-                    if (val === "clean") setScale(4); // clean mode is 4x-only
-                  }}
-                >
-                  <option value="photo">Photo</option>
-                  <option value="anime">Anime</option>
-                  <option value="clean">Clean (ESRNet 4×)</option>
-                </select>
-              </div>
-              <div className="control-group">
-                <span className="label">Scale</span>
-                <div className="pill-group">
-                  {[2, 4].map((value) => (
-                    <button
-                      key={value}
-                      className={`pill ${scale === value ? "active" : ""}`}
-                      onClick={() => setScale(value)}
-                      type="button"
-                    >
-                      {value}×
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="control-group">
-                <span className="label">Face restore</span>
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={faceRestore}
-                    onChange={(e) => setFaceRestore(e.target.checked)}
-                  />
-                  <span className="slider" />
-                </label>
-              </div>
-              <div className="control-group">
-                <span className="label">Text-safe</span>
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={textSafe}
-                    onChange={(e) => {
-                      const v = e.target.checked;
-                      setTextSafe(v);
-                      if (v) {
-                        setFaceRestore(false);
-                        if (sharpenStrength < 0.25) setSharpenStrength(0.25);
-                        setMode("photo");
-                      }
-                    }}
-                  />
-                  <span className="slider" />
-                </label>
-              </div>
-              <div className="control-group slider-group">
-                <span className="label">Sharpen</span>
-                <div className="range-field">
-                  <input
-                    type="range"
-                    min="0"
-                    max="0.6"
-                    step="0.05"
-                    value={sharpenStrength}
-                    onChange={(e) => setSharpenStrength(Number(e.target.value))}
-                  />
-                  <span className="range-value">{sharpenStrength.toFixed(2)}</span>
-                </div>
-              </div>
-            </section>
+            <ImageControls
+              mode={mode}
+              scale={scale}
+              setMode={setMode}
+              setScale={setScale}
+              faceRestore={faceRestore}
+              setFaceRestore={setFaceRestore}
+              textSafe={textSafe}
+              setTextSafe={setTextSafe}
+              sharpenStrength={sharpenStrength}
+              setSharpenStrength={setSharpenStrength}
+              advancedOpen={advancedOpen}
+              setAdvancedOpen={setAdvancedOpen}
+              autoEnhance={autoEnhance}
+              setAutoEnhance={setAutoEnhance}
+              applyTonePreset={applyTonePreset}
+              tonePreset={tonePreset}
+              presetIntensity={presetIntensity}
+              setPresetIntensity={setPresetIntensity}
+              denoiseStrength={denoiseStrength}
+              setDenoiseStrength={setDenoiseStrength}
+              brightness={brightness}
+              setBrightness={setBrightness}
+              exposure={exposure}
+              setExposure={setExposure}
+              contrast={contrast}
+              setContrast={setContrast}
+              saturation={saturation}
+              setSaturation={setSaturation}
+              resetAdvanced={resetAdvanced}
+              onDocumentPreset={applyDocumentPreset}
+            />
 
-            <section className="advanced">
-              <div className="advanced-head">
-                <div>
-                  <span className="label">Advanced overrides</span>
-                  <p className="hint small">Tone tweaks apply per request and reset anytime.</p>
-                </div>
-                <div className="advanced-actions">
-                  <button type="button" className="ghost small" onClick={() => setAdvancedOpen((v) => !v)}>
-                    {advancedOpen ? "Hide tweaks" : "Show tweaks"}
-                  </button>
-                  <button type="button" className="ghost small" onClick={resetAdvanced}>
-                    Reset tweaks
-                  </button>
-                </div>
-              </div>
-
-              {advancedOpen && (
-                <div className="controls advanced-grid">
-                  <div className="control-group">
-                    <span className="label">Auto-enhance</span>
-                    <label className="switch">
-                      <input type="checkbox" checked={autoEnhance} onChange={(e) => setAutoEnhance(e.target.checked)} />
-                      <span className="slider" />
-                    </label>
-                  </div>
-                  <div className="control-group">
-                    <span className="label">Document preset</span>
-                    <button
-                      type="button"
-                      className="ghost small"
-                      onClick={() => {
-                        setTextSafe(true);
-                        setFaceRestore(false);
-                        setSharpenStrength((v) => (v < 0.25 ? 0.25 : v));
-                      }}
-                    >
-                      Text-safe boost
-                    </button>
-                  </div>
-                    <div className="control-group">
-                      <span className="label">Tone preset</span>
-                      <select
-                        className="select"
-                        value={tonePreset}
-                        onChange={(e) => applyTonePreset(e.target.value)}
-                      >
-                        <option value="none">None</option>
-                        <option value="night">Night fix</option>
-                        <option value="portrait">Portrait clean</option>
-                        <option value="print">Print-ready</option>
-                      </select>
-                    </div>
-                    <div className="control-group slider-group">
-                      <span className="label">Preset intensity</span>
-                      <div className="range-field">
-                        <input
-                          type="range"
-                          min="0.6"
-                          max="1.6"
-                          step="0.05"
-                          value={presetIntensity}
-                          onChange={(e) => setPresetIntensity(Number(e.target.value))}
-                          disabled={tonePreset === "none"}
-                        />
-                        <span className="range-value">{presetIntensity.toFixed(2)}</span>
-                      </div>
-                    </div>
-                    <div className="control-group slider-group">
-                      <span className="label">Denoise</span>
-                      <div className="range-field">
-                        <input
-                          type="range"
-                          min="0"
-                          max="0.3"
-                          step="0.02"
-                          value={denoiseStrength}
-                          onChange={(e) => setDenoiseStrength(Number(e.target.value))}
-                        />
-                        <span className="range-value">{denoiseStrength.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  <div className="control-group slider-group">
-                      <span className="label">Brightness</span>
-                      <div className="range-field">
-                        <input
-                          type="range"
-                          min="0.5"
-                          max="1.5"
-                          step="0.05"
-                          value={brightness}
-                          onChange={(e) => setBrightness(Number(e.target.value))}
-                        />
-                        <span className="range-value">{brightness.toFixed(2)}</span>
-                      </div>
-                    </div>
-                    <div className="control-group slider-group">
-                    <span className="label">Exposure</span>
-                    <div className="range-field">
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="1.5"
-                        step="0.05"
-                        value={exposure}
-                        onChange={(e) => setExposure(Number(e.target.value))}
-                      />
-                      <span className="range-value">{exposure.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  <div className="control-group slider-group">
-                    <span className="label">Contrast</span>
-                    <div className="range-field">
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="1.5"
-                        step="0.05"
-                        value={contrast}
-                        onChange={(e) => setContrast(Number(e.target.value))}
-                      />
-                      <span className="range-value">{contrast.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  <div className="control-group slider-group">
-                    <span className="label">Saturation</span>
-                    <div className="range-field">
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="1.5"
-                        step="0.05"
-                        value={saturation}
-                        onChange={(e) => setSaturation(Number(e.target.value))}
-                      />
-                      <span className="range-value">{saturation.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            <section
-              className={`dropzone ${loading ? "is-loading" : ""}`}
-              onDrop={(e) => {
-                e.preventDefault();
-                const file = e.dataTransfer.files?.[0];
-                if (file) onImageFile(file);
-              }}
-              onDragOver={(e) => e.preventDefault()}
-              onClick={handleImageSelect}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") handleImageSelect();
-              }}
-            >
-              <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && onImageFile(e.target.files[0])} />
-              <div className="drop-inner">
-                <div className="badge">Step 4.2</div>
-                <p className="drop-title">Drop an image or click to browse</p>
-                <p className="hint">We send it to the backend and stream back a PNG.</p>
-                {inputHint && <p className="hint inline-hint">{inputHint}</p>}
-                {loading && <div className="spinner" aria-label="Processing" />}
-              </div>
-            </section>
+            <ImageDropzone loading={loading} inputHint={inputHint} onFile={onImageFile} onSelect={handleImageSelect} inputRef={imageInputRef} />
 
             {error && <div className="alert">{error}</div>}
 
             {beforeUrl && (
-              <section className="compare">
-                <div className="panel-head">
-                  <span className="chip">Before / After</span>
-                  {status && <span className="meta status-pill">{status}</span>}
-                  <button
-                    type="button"
-                    className="ghost small"
-                    onClick={() => setShowAfter((v) => !v)}
-                    disabled={!afterUrl}
-                  >
-                    {showAfter ? "Show Before" : "Show After"}
-                  </button>
-                </div>
-                <div className="compare-body">
-                  {showPreviewOverlay && (
-                    <div className="preview-overlay" role="status" aria-live="polite">
-                      {loading && <div className="preview-spinner" aria-label={status || "Processing"} />}
-                      <div className="preview-status-text">{loading ? status || "Working…" : "Error"}</div>
-                      {loading && inputHint && <div className="preview-hint">{inputHint}</div>}
-                      {error && <div className="preview-error">{error}</div>}
-                    </div>
-                  )}
-                  <div className="compare-frame">
-                    {loading && !afterUrl ? (
-                      <div className="skeleton skeleton-img" aria-label="Loading preview" />
-                    ) : (
-                      <img
-                        src={showAfter && afterUrl ? afterUrl : beforeUrl}
-                        alt={showAfter && afterUrl ? "After" : "Before"}
-                        className="compare-img"
-                      />
-                    )}
-                  </div>
-                </div>
-              </section>
+              <ImageCompare
+                beforeUrl={beforeUrl}
+                afterUrl={afterUrl}
+                status={status}
+                showAfter={showAfter}
+                setShowAfter={setShowAfter}
+                loading={loading}
+                inputHint={inputHint}
+                error={error}
+              />
             )}
 
             <section className="actions">
@@ -855,106 +603,28 @@ function App() {
 
         {activeTab === "video" && (
           <>
-            <section className="controls">
-              <div className="control-group">
-                <span className="label">Scale</span>
-                <div className="pill-group">
-                  {[2, 4].map((value) => (
-                    <button
-                      key={value}
-                      className={`pill ${scale === value ? "active" : ""}`}
-                      onClick={() => setScale(value)}
-                      type="button"
-                      disabled={(mode === "anime" || mode === "clean") && value === 2}
-                      title={value === 2 && (mode === "anime" || mode === "clean") ? "Only 4x is available for this mode" : undefined}
-                    >
-                      {value}×
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="control-group">
-                <span className="label">Interpolate</span>
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={videoInterpolate}
-                    onChange={(e) => setVideoInterpolate(e.target.checked)}
-                  />
-                  <span className="slider" />
-                </label>
-              </div>
-              <div className="control-group">
-                <span className="label">Face restore</span>
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={videoFace}
-                    onChange={(e) => setVideoFace(e.target.checked)}
-                  />
-                  <span className="slider" />
-                </label>
-              </div>
-              <div className="control-group status">
-                <span className="label">Status</span>
-                <p className="status-text">{videoLoading ? "Working…" : videoStatus}</p>
-              </div>
-            </section>
+            <VideoControls
+              mode={mode}
+              videoScale={videoScale}
+              setVideoScale={setVideoScale}
+              videoInterpolate={videoInterpolate}
+              setVideoInterpolate={setVideoInterpolate}
+              videoFace={videoFace}
+              setVideoFace={setVideoFace}
+              videoStatus={videoStatus}
+              videoLoading={videoLoading}
+            />
 
-            <section
-              className={`dropzone ${videoLoading ? "is-loading" : ""}`}
-              onDrop={(e) => {
-                e.preventDefault();
-                const file = e.dataTransfer.files?.[0];
-                if (file) onVideoFile(file);
-              }}
-              onDragOver={(e) => e.preventDefault()}
-              onClick={handleVideoSelect}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") handleVideoSelect();
-              }}
-            >
-              <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={(e) => e.target.files?.[0] && onVideoFile(e.target.files[0])} />
-              <div className="drop-inner">
-                <div className="badge">Step 4.3</div>
-                <p className="drop-title">Drop a video or click to browse</p>
-                <p className="hint">Starts a backend job and polls until ready.</p>
-                {videoLoading && <div className="spinner" aria-label="Processing" />}
-              </div>
-            </section>
+            <VideoDropzone
+              videoLoading={videoLoading}
+              onFile={onVideoFile}
+              onSelect={handleVideoSelect}
+              inputRef={videoInputRef}
+            />
 
             {videoError && <div className="alert">{videoError}</div>}
 
-            <section className="video-grid">
-              <div className="panel">
-                <div className="panel-head">
-                  <span className="chip">Source</span>
-                  {videoJobId && <span className="meta">Job: {videoJobId}</span>}
-                </div>
-                <div className="panel-body">
-                  {videoSrcUrl ? (
-                    <video src={videoSrcUrl} controls className="video-player" />
-                  ) : (
-                    <p className="placeholder">No video yet</p>
-                  )}
-                </div>
-              </div>
-              <div className="panel">
-                <div className="panel-head">
-                  <span className="chip">Output</span>
-                  <span className="meta">Preview + download</span>
-                </div>
-                <div className="panel-body">
-                  {videoOutUrl ? (
-                    <video src={videoOutUrl} controls className="video-player" />
-                  ) : (
-                    <p className="placeholder">Waiting for completion</p>
-                  )}
-                </div>
-              </div>
-            </section>
+            <VideoPanels videoSrcUrl={videoSrcUrl} videoOutUrl={videoOutUrl} videoJobId={videoJobId} />
 
             <section className="actions">
               <button type="button" className="ghost" onClick={resetVideoPreview} disabled={!videoSrcUrl && !videoOutUrl}>
@@ -967,50 +637,17 @@ function App() {
           </>
         )}
 
-        <section className="settings">
-          <div className="panel">
-            <div className="panel-head">
-              <span className="chip">Settings</span>
-              <span className="meta">Step 4.4</span>
-            </div>
-            <div className="settings-grid">
-              <label className="field">
-                <span className="label">Models directory</span>
-                <input type="text" value={modelDir} onChange={(e) => setModelDir(e.target.value)} />
-              </label>
-              <label className="field">
-                <span className="label">FFmpeg path</span>
-                <input type="text" value={ffmpegPath} onChange={(e) => setFfmpegPath(e.target.value)} />
-              </label>
-              <label className="field">
-                <span className="label">Tile size</span>
-                <input type="number" min="64" max="512" value={tileSize} onChange={(e) => setTileSize(e.target.value)} />
-              </label>
-              <label className="field switch-field">
-                <span className="label">FP16</span>
-                <label className="switch">
-                  <input type="checkbox" checked={useFp16} onChange={(e) => setUseFp16(e.target.checked)} />
-                  <span className="slider" />
-                </label>
-              </label>
-            </div>
-          </div>
-          <div className="panel">
-            <div className="panel-head">
-              <span className="chip">System</span>
-              <span className="meta">Health</span>
-            </div>
-            <div className="system">
-              <p className="meta">Status: {health.status}</p>
-              {health.device && <p className="meta">Device: {health.device}</p>}
-              {health.version && <p className="meta">Backend v{health.version}</p>}
-              {health.amp !== undefined && (
-                <p className="meta">AMP: {health.amp ? "on" : "off"} · Half: {health.half ? "yes" : "no"}</p>
-              )}
-              <p className="hint">Settings are stored locally for now.</p>
-            </div>
-          </div>
-        </section>
+        <SettingsPanel
+          modelDir={modelDir}
+          setModelDir={setModelDir}
+          ffmpegPath={ffmpegPath}
+          setFfmpegPath={setFfmpegPath}
+          tileSize={tileSize}
+          setTileSize={setTileSize}
+          useFp16={useFp16}
+          setUseFp16={setUseFp16}
+          health={health}
+        />
       </div>
     </div>
   );

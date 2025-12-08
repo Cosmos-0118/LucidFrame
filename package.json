@@ -1,6 +1,6 @@
 {
   "name": "lucidframe",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "engines": {
     "node": ">=18"
@@ -50,6 +50,10 @@
       {
         "from": "bin/waifu2x-ncnn-vulkan.exe",
         "to": "bin/waifu2x-ncnn-vulkan.exe"
+      },
+      {
+        "from": "bin/tbb12.dll",
+        "to": "bin/tbb12.dll"
       },
       {
         "from": "build/backend-dist/backend.exe",
