@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import io
+import subprocess
+import tempfile
 import time
 import warnings
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import cv2
 import numpy as np
@@ -107,6 +109,56 @@ def _apply_tone(img: np.ndarray, exposure: float, contrast: float,
     return np.clip(out * 255.0, 0, 255).astype(np.uint8)
 
 
+def _waifu2x_upscale(img: np.ndarray, scale: int,
+                     noise_level: int) -> np.ndarray:
+    """Run waifu2x-ncnn-vulkan for anime 2x upscaling."""
+
+    exe = config.waifu2x_path
+    if exe is None or not exe.exists():
+        raise ImagePipelineError(
+            "waifu2x binary not found; set LUCIDFRAME_WAIFU2X or place waifu2x-ncnn-vulkan.exe in bin/"
+        )
+
+    models_dir = config.models_dir / "waifu2x" / "models-upconv_7_anime_style_art_rgb"
+    if not models_dir.exists():
+        raise ImagePipelineError(f"waifu2x models not found: {models_dir}")
+
+    # Ensure temp root exists before creating a subdir
+    config.temp_dir.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(dir=config.temp_dir) as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        inp = tmpdir_path / "waifu2x_in.png"
+        out = tmpdir_path / "waifu2x_out.png"
+        if not cv2.imwrite(str(inp), img):
+            raise ImagePipelineError("failed to write temp image for waifu2x")
+
+        cmd = [
+            str(exe),
+            "-i",
+            str(inp),
+            "-o",
+            str(out),
+            "-s",
+            str(scale),
+            "-n",
+            str(noise_level),
+            "-m",
+            str(models_dir),
+        ]
+        try:
+            subprocess.run(cmd, check=True, capture_output=True)
+        except subprocess.CalledProcessError as exc:  # noqa: BLE001
+            err = exc.stderr.decode(
+                errors="ignore") if exc.stderr else str(exc)
+            raise ImagePipelineError(f"waifu2x failed: {err}") from exc
+
+        result = cv2.imread(str(out))
+        if result is None:
+            raise ImagePipelineError("waifu2x produced no output")
+        return result
+
+
 def process_image(
     file: UploadFile,
     mode: str = "photo",
@@ -134,8 +186,8 @@ def process_image(
     if scale not in (2, 4):
         raise ImagePipelineError("scale must be 2 or 4")
     mode_val = _validate_mode(mode)
-    if mode_val in {"anime", "clean"} and scale != 4:
-        # Keep it reliable: anime and clean models are 4x-only
+    if mode_val == "clean" and scale != 4:
+        # Clean model is 4x-only
         scale = 4
     if not 0 <= face_strength <= 1:
         raise ImagePipelineError("face_strength must be between 0 and 1")
@@ -143,6 +195,9 @@ def process_image(
         raise ImagePipelineError("denoise_strength must be >= 0")
     if sharpen_strength < 0:
         raise ImagePipelineError("sharpen_strength must be >= 0")
+    if text_mode and face_restore:
+        raise ImagePipelineError(
+            "text_mode cannot be combined with face restoration")
     for name, val in (("brightness", brightness), ("exposure", exposure),
                       ("contrast", contrast), ("saturation", saturation)):
         if not 0.2 <= val <= 2.0:
@@ -173,9 +228,17 @@ def process_image(
         contrast = min(contrast, 1.15)
         saturation = min(saturation, 1.1)
 
-    model_path = _select_model_path(mode_val, scale)
-    if not model_path.exists():
-        raise ImagePipelineError(f"model not found: {model_path}")
+    use_waifu2x = mode_val == "anime" and scale == 2
+
+    if face_restore and use_waifu2x:
+        raise ImagePipelineError(
+            "face restoration is not supported with waifu2x 2x anime mode")
+
+    model_path = None
+    if not use_waifu2x:
+        model_path = _select_model_path(mode_val, scale)
+        if not model_path.exists():
+            raise ImagePipelineError(f"model not found: {model_path}")
 
     img = _load_image_bytes(file)
     h, w = img.shape[:2]
@@ -191,33 +254,42 @@ def process_image(
     img = _maybe_denoise(img, denoise_strength)
     t0 = time.time()
 
-    upsampler = load_realesrgan(model_path,
-                                scale=scale,
-                                tile_override=tile_override)
-    if face_restore:
-        # GFPGAN with RealESRGAN as background upsampler when supported; fallback if API differs.
-        gfpgan = load_gfpgan(config.models_dir / "gfpgan" / "GFPGANv1.4.pth")
-        try:
-            _, _, restored_img = gfpgan.enhance(
-                img,
-                has_aligned=False,
-                only_center_face=False,
-                paste_back=True,
-                weight=face_strength,
-                bg_upsampler=upsampler,
-                upscale=scale,
-            )
-        except TypeError:
-            _, _, restored_img = gfpgan.enhance(
-                img,
-                has_aligned=False,
-                only_center_face=False,
-                paste_back=True,
-                weight=face_strength,
-            )
-        out = restored_img
+    tile_info = None
+    upsampler: Any | None = None
+    if use_waifu2x:
+        noise_level = int(max(0, min(3, round(denoise_strength * 3))))
+        out = _waifu2x_upscale(img, scale=scale, noise_level=noise_level)
     else:
-        out, _ = upsampler.enhance(img, outscale=scale)
+        assert model_path is not None
+        upsampler = load_realesrgan(model_path,
+                                    scale=scale,
+                                    tile_override=tile_override)
+        tile_info = getattr(upsampler, "tile", None)
+        if face_restore:
+            # GFPGAN with RealESRGAN as background upsampler when supported; fallback if API differs.
+            gfpgan: Any = load_gfpgan(config.models_dir / "gfpgan" /
+                                      "GFPGANv1.4.pth")
+            try:
+                _, _, restored_img = gfpgan.enhance(
+                    img,
+                    has_aligned=False,
+                    only_center_face=False,
+                    paste_back=True,
+                    weight=face_strength,
+                    bg_upsampler=upsampler,
+                    upscale=scale,
+                )
+            except TypeError:
+                _, _, restored_img = gfpgan.enhance(
+                    img,
+                    has_aligned=False,
+                    only_center_face=False,
+                    paste_back=True,
+                    weight=face_strength,
+                )
+            out = restored_img
+        else:
+            out, _ = upsampler.enhance(img, outscale=scale)
 
     out = _apply_tone(out,
                       exposure=exposure,
@@ -247,7 +319,7 @@ def process_image(
     meta = {
         "mp": megapixels,
         "warning": warning,
-        "tile": getattr(upsampler, "tile", None),
+        "tile": tile_info,
         "params": {
             "brightness": brightness,
             "exposure": exposure,

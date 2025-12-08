@@ -23,6 +23,8 @@ backend.spec
 # Models and outputs
 models/**/*.pth
 models/**/*.onnx
+models/**/*.bin
+models/**/*.param
 !models/manifest.json
 gfpgan/weights/*.pth
 outputs/

@@ -26,6 +26,10 @@ class AppConfig(BaseModel):
     temp_dir: Path = _env_path(
         "LUCIDFRAME_TEMP",
         Path(__file__).resolve().parent.parent / "data" / "tmp")
+    waifu2x_path: Path | None = _env_path(
+        "LUCIDFRAME_WAIFU2X",
+        Path(__file__).resolve().parent.parent / "bin" /
+        "waifu2x-ncnn-vulkan.exe")
     ffmpeg_path: Path | None = _env_path(
         "LUCIDFRAME_FFMPEG",
         Path(__file__).resolve().parent.parent / "bin" / "ffmpeg.exe")

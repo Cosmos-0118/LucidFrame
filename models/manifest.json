@@ -37,6 +37,66 @@
       "size": 21344827,
       "sha256": "6a8a825ab2750558bdd20dcced386fd82b7222c7ba58c11d3b611d9c44f1be63",
       "url": "rife47.pth"
+    },
+    {
+      "name": "waifu2x/models-upconv_7_anime_style_art_rgb/scale2.0x_model.bin",
+      "size": 1106248,
+      "sha256": "27d880903ff81390a3b4a900b67af3381c465279e34297546c9a58781855f7ef",
+      "url": "https://raw.githubusercontent.com/nihui/waifu2x-ncnn-vulkan/master/models/models-upconv_7_anime_style_art_rgb/scale2.0x_model.bin"
+    },
+    {
+      "name": "waifu2x/models-upconv_7_anime_style_art_rgb/scale2.0x_model.param",
+      "size": 1047,
+      "sha256": "413195ffde05b4d43807792c6c020c916cecdf25dcf002ee83f5e28d5cc246c6",
+      "url": "https://raw.githubusercontent.com/nihui/waifu2x-ncnn-vulkan/master/models/models-upconv_7_anime_style_art_rgb/scale2.0x_model.param"
+    },
+    {
+      "name": "waifu2x/models-upconv_7_anime_style_art_rgb/noise0_scale2.0x_model.bin",
+      "size": 1106248,
+      "sha256": "e1d2c4d91be98e72c0d48d08626cbe7d879aa2b80f740133dcc0d860eabb4189",
+      "url": "https://raw.githubusercontent.com/nihui/waifu2x-ncnn-vulkan/master/models/models-upconv_7_anime_style_art_rgb/noise0_scale2.0x_model.bin"
+    },
+    {
+      "name": "waifu2x/models-upconv_7_anime_style_art_rgb/noise0_scale2.0x_model.param",
+      "size": 1047,
+      "sha256": "413195ffde05b4d43807792c6c020c916cecdf25dcf002ee83f5e28d5cc246c6",
+      "url": "https://raw.githubusercontent.com/nihui/waifu2x-ncnn-vulkan/master/models/models-upconv_7_anime_style_art_rgb/noise0_scale2.0x_model.param"
+    },
+    {
+      "name": "waifu2x/models-upconv_7_anime_style_art_rgb/noise1_scale2.0x_model.bin",
+      "size": 1106248,
+      "sha256": "536fd7070b023463d30bd105f675acf301760dce539f2fb974bd06906045514f",
+      "url": "https://raw.githubusercontent.com/nihui/waifu2x-ncnn-vulkan/master/models/models-upconv_7_anime_style_art_rgb/noise1_scale2.0x_model.bin"
+    },
+    {
+      "name": "waifu2x/models-upconv_7_anime_style_art_rgb/noise1_scale2.0x_model.param",
+      "size": 1047,
+      "sha256": "413195ffde05b4d43807792c6c020c916cecdf25dcf002ee83f5e28d5cc246c6",
+      "url": "https://raw.githubusercontent.com/nihui/waifu2x-ncnn-vulkan/master/models/models-upconv_7_anime_style_art_rgb/noise1_scale2.0x_model.param"
+    },
+    {
+      "name": "waifu2x/models-upconv_7_anime_style_art_rgb/noise2_scale2.0x_model.bin",
+      "size": 1106248,
+      "sha256": "435f9082425c4520d3586757411ac409b1d67e428ed37ec571feb06f823e245e",
+      "url": "https://raw.githubusercontent.com/nihui/waifu2x-ncnn-vulkan/master/models/models-upconv_7_anime_style_art_rgb/noise2_scale2.0x_model.bin"
+    },
+    {
+      "name": "waifu2x/models-upconv_7_anime_style_art_rgb/noise2_scale2.0x_model.param",
+      "size": 1047,
+      "sha256": "413195ffde05b4d43807792c6c020c916cecdf25dcf002ee83f5e28d5cc246c6",
+      "url": "https://raw.githubusercontent.com/nihui/waifu2x-ncnn-vulkan/master/models/models-upconv_7_anime_style_art_rgb/noise2_scale2.0x_model.param"
+    },
+    {
+      "name": "waifu2x/models-upconv_7_anime_style_art_rgb/noise3_scale2.0x_model.bin",
+      "size": 1106248,
+      "sha256": "3e783a9117d4564fbd0cc376375b29d7eb05bd2e457f748898e82eefb1ace2f1",
+      "url": "https://raw.githubusercontent.com/nihui/waifu2x-ncnn-vulkan/master/models/models-upconv_7_anime_style_art_rgb/noise3_scale2.0x_model.bin"
+    },
+    {
+      "name": "waifu2x/models-upconv_7_anime_style_art_rgb/noise3_scale2.0x_model.param",
+      "size": 1047,
+      "sha256": "413195ffde05b4d43807792c6c020c916cecdf25dcf002ee83f5e28d5cc246c6",
+      "url": "https://raw.githubusercontent.com/nihui/waifu2x-ncnn-vulkan/master/models/models-upconv_7_anime_style_art_rgb/noise3_scale2.0x_model.param"
     }
   ]
 }
