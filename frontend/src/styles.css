@@ -394,6 +394,37 @@ input[type="text"]:focus {
   animation: spin 1s linear infinite;
 }
 
+.alert-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--accent-2);
+  position: relative;
+  box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.08);
+}
+
+.alert-icon::before,
+.alert-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent-2);
+  border-radius: 2px;
+}
+
+.alert-icon::before {
+  top: 7px;
+  width: 4px;
+  height: 14px;
+}
+
+.alert-icon::after {
+  bottom: 6px;
+  width: 4px;
+  height: 4px;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

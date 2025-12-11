@@ -335,7 +335,7 @@ function ImageSection({ backendUrl, warmup }) {
             onChange={(e) => {
               const val = e.target.value;
               setMode(val);
-              if (val === "clean") setScale(4);
+              if (val === "clean" || val === "anime") setScale(4);
             }}
           >
             <option value="photo">Photo</option>
@@ -352,6 +352,8 @@ function ImageSection({ backendUrl, warmup }) {
                 className={`pill ${scale === value ? "active" : ""}`}
                 onClick={() => setScale(value)}
                 type="button"
+                disabled={(mode === "anime" || mode === "clean") && value === 2}
+                title={value === 2 && (mode === "anime" || mode === "clean") ? "Only 4× available for this mode" : undefined}
               >
                 {value}×
               </button>
@@ -361,7 +363,15 @@ function ImageSection({ backendUrl, warmup }) {
         <div className="control-group">
           <span className="label">Face restore</span>
           <label className="switch">
-            <input type="checkbox" checked={faceRestore} onChange={(e) => setFaceRestore(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={faceRestore}
+              onChange={(e) => {
+                const v = e.target.checked;
+                setFaceRestore(v);
+                if (v) setTextSafe(false);
+              }}
+            />
             <span className="slider" />
           </label>
         </div>

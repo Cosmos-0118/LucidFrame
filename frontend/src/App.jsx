@@ -54,20 +54,28 @@ function App() {
 
   useEffect(() => {
     fetchHealth();
-  }, [fetchHealth]);
+  }, [fetchHealth, backendUrl]);
+
+  const ready = !healthLoading && health.status === "ok";
+
+  if (!ready) {
+    return (
+      <div className="page">
+        <BootOverlay
+          show
+          status={health.status}
+          backendUrl={backendUrl}
+          onBackendChange={setBackendUrl}
+          onRefresh={fetchHealth}
+          healthLoading={healthLoading}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="page">
-      <BootOverlay show={healthLoading} />
-
-      <div className="chrome">
-        {health.status === "unreachable" && !healthLoading && (
-          <div className="alert soft">
-            Backend not reachable at <strong>{cleanUrl(backendUrl)}</strong>. Start the backend or update the URL, then
-            hit Refresh.
-          </div>
-        )}
-
+      <div className="chrome" aria-busy={!ready}>
         <HeaderBar
           backendUrl={backendUrl}
           onBackendChange={setBackendUrl}
