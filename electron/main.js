@@ -18,7 +18,7 @@ const backendPort = 8000;
 let backendProcess = null;
 let backendReady = false;
 let backendStartedByApp = false;
-let backendBootPromise = null;
+ let backendBootPromise = null;
 
 async function isBackendAlive() {
   try {
@@ -219,9 +219,14 @@ function startBackend() {
 async function createWindow() {
   backendBootPromise = backendBootPromise || bootBackend();
 
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, "AppIcon.png")
+    : path.join(app.getAppPath(), "resources", "AppIcon.png");
+
   const win = new BrowserWindow({
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
+    icon: iconPath,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -255,7 +260,10 @@ if (!app.requestSingleInstanceLock()) {
     }
   });
 
-  app.whenReady().then(createWindow);
+  app.whenReady().then(() => {
+    app.setAppUserModelId("com.lucidframe.app");
+    createWindow();
+  });
 
   app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
