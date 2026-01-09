@@ -4,6 +4,6 @@ pydantic==2.7.1
 numpy==1.26.4
 opencv-python==4.9.0.80
 tqdm==4.66.4
-requests==2.32.2
-python-multipart==0.0.9
+requests==2.32.4
+python-multipart==0.0.18
 # Torch and addons are installed via setup_env.ps1 with the right build (CUDA/CPU/DirectML/ROCm where applicable).
