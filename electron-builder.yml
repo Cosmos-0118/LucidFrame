@@ -1,0 +1,59 @@
+# Packaging: `npm run dist` builds an installer for the OS you run it on.
+# Native modules (onnxruntime, sharp, ffmpeg) ship prebuilt binaries, so there is nothing to compile.
+appId: com.lucidframe.app
+productName: LucidFrame
+copyright: Copyright © LucidFrame contributors
+directories:
+  output: release
+  buildResources: build
+npmRebuild: false
+nodeGypRebuild: false
+electronLanguages: [en-US]
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
+files:
+  - package.json
+  - src/**/*
+  - "!src/renderer/**"
+  - dist/renderer/**/*
+  - build/icon.png
+  - "!**/*.map"
+  - "!**/node_modules/*/{CHANGELOG,README,readme,HISTORY}.md"
+
+# Native libraries must live outside the asar archive to be loadable.
+asarUnpack:
+  - node_modules/onnxruntime-node/**
+  - node_modules/sharp/**
+  - node_modules/@img/**
+  - node_modules/ffmpeg-static/**
+
+# The AI models are plain files next to the app, so they are never copied or downloaded at runtime.
+extraResources:
+  - from: models
+    to: models
+    filter: ["*.onnx", manifest.json]
+
+afterPack: scripts/after-pack.cjs
+
+win:
+  target: [{ target: nsis, arch: [x64] }]
+  icon: build/icon.png
+nsis:
+  oneClick: true # download → double-click → done; no wizard
+  perMachine: false # per-user install, no admin prompt
+  deleteAppDataOnUninstall: false
+mac:
+  target: [{ target: dmg, arch: [arm64] }] # onnxruntime-node no longer ships Intel-Mac binaries
+  category: public.app-category.graphics-design
+  icon: build/icon.png
+  hardenedRuntime: false
+linux:
+  target: [{ target: AppImage, arch: [x64] }, { target: deb, arch: [x64] }]
+  category: Graphics
+  icon: build/icon.png
+  syncDesktopName: true
+  synopsis: Offline AI image and video upscaler
+  maintainer: LucidFrame contributors
+appImage:
+  # Ubuntu 24.04+ blocks Chromium's sandbox inside AppImages; the app detects that and adapts.
+  category: Graphics

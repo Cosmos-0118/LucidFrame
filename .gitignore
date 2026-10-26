@@ -1,48 +1,21 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.env
-.env
-.venv/
-venv/
-
-# Node/Frontend
+# dependencies & build output
 node_modules/
 dist/
-build/
-build/backend-build/
-build/backend-dist/
-dist/*.exe
-dist/*.blockmap
-dist/win-unpacked/
-bundle-resources-*.zip
-backend.spec
-
-# Models and outputs
-models/**/*.pth
-models/**/*.onnx
-!models/manifest.json
-gfpgan/weights/*.pth
-outputs/
-*.mp4
-*.png
-*.jpg
-*.jpeg
-
-# Binaries
-bin/ffmpeg.exe
-bin/*.zip
-
-# Temp data
-.data/
-data/tmp/
+release/
 *.log
 *.tmp
-
-# OS/Editor
 .DS_Store
 Thumbs.db
+
+# editors
 .idea/
 .vscode/
+
+# tooling environments (see tools/convert_models.py)
+.venv/
+.venv-tools/
+__pycache__/
+
+# local test output
+*.partial.*
+.lucidframe-test/
