@@ -8,7 +8,7 @@
 
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { Engine, appVersion, detectKind, OUTPUT_FORMATS, SCALES } from "../src/engine/index.js";
+import { Engine, appVersion, detectKind, CLEANUP_MODES, FACE_MODES, OUTPUT_FORMATS, SCALES } from "../src/engine/index.js";
 
 const HELP = `LucidFrame ${appVersion()} — offline AI image & video upscaler
 
@@ -24,6 +24,10 @@ Options
       --out-dir <dir>   write results here instead of next to the input
       --format <fmt>    ${["auto", ...OUTPUT_FORMATS].join(" | ")}  image output format        (default: auto)
       --quality <1-100> JPEG/WebP quality                                (default: 95)
+      --cleanup <mode>  ${CLEANUP_MODES.join(" | ")}   images: clean up compression blocks and blur first (default: auto)
+      --faces <mode>    ${FACE_MODES.join(" | ")}   images: redraw faces with a face-restoration model (default: auto)
+                        auto = small or degraded faces only; always = every face, whatever its size
+      --face-strength <0-1>  how much of the restored face replaces the upscaled one      (default: 0.85)
       --smooth          video: motion-interpolate to double the frame rate
       --device <name>   auto | cpu | dml | cuda | coreml                 (default: auto)
       --json            machine-readable output
@@ -40,6 +44,9 @@ const { values, positionals } = parseArgs({
     "out-dir": { type: "string" },
     format: { type: "string" },
     quality: { type: "string" },
+    cleanup: { type: "string" },
+    faces: { type: "string" },
+    "face-strength": { type: "string" },
     smooth: { type: "boolean" },
     device: { type: "string" },
     json: { type: "boolean" },
@@ -93,6 +100,8 @@ try {
     if (json) console.log(JSON.stringify(models, null, 2));
     else {
       for (const m of models) console.log(`${m.id.padEnd(11)} ${String(m.scale) + "×"}  ${m.name.padEnd(12)} ${m.tagline}  [${m.license}, ${m.author}]`);
+      console.log("\nRestore components (used automatically around the models above):");
+      for (const t of engine.tools()) console.log(`${t.id.padEnd(13)} ${t.name.padEnd(18)} [${t.license}, ${t.author}]`);
     }
     process.exit(0);
   }
@@ -111,6 +120,8 @@ try {
 
   if (values.output && positionals.length > 1) fail("--output can only be used with a single input; use --out-dir for several");
   const models = new Map(engine.models().map((m) => [m.id, m]));
+  if (values.cleanup && !CLEANUP_MODES.includes(values.cleanup)) fail(`--cleanup must be one of ${CLEANUP_MODES.join(", ")}`);
+  if (values.faces && !FACE_MODES.includes(values.faces)) fail(`--faces must be one of ${FACE_MODES.join(", ")}`);
   if (values.model && !models.has(values.model)) fail(`unknown model "${values.model}" (try: ${[...models.keys()].join(", ")})`);
 
   const results = [];
@@ -130,11 +141,22 @@ try {
       format: values.format,
       quality: values.quality ? Number(values.quality) : undefined,
       smooth: values.smooth,
+      cleanup: values.cleanup,
+      faces: values.faces,
+      faceStrength: values["face-strength"] ? Number(values["face-strength"]) : undefined,
       signal: abort.signal,
       onProgress: bar,
     });
     if (process.stderr.isTTY && !json) process.stderr.write("\r".padEnd(80) + "\r");
     for (const w of result.warnings) out(`  ! ${w}`);
+    if (result.restore) {
+      const { cleanup, faces } = result.restore;
+      const notes = [];
+      if (cleanup.applied) notes.push(`cleaned up ${cleanup.reasons.length ? cleanup.reasons.map((r) => (r === "blocks" ? "compression blocks" : "blur")).join(" and ") : "the image"}`);
+      if (faces.restored) notes.push(`restored ${faces.restored} face${faces.restored === 1 ? "" : "s"}`);
+      else if (faces.found) notes.push(`${faces.found} face${faces.found === 1 ? "" : "s"} found, left as is (already detailed)`);
+      if (notes.length) out(`  ✓ ${notes.join("; ")}`);
+    }
     out(`  → ${result.output}  (${result.sourceWidth}×${result.sourceHeight} → ${result.width}×${result.height}, ${result.seconds.toFixed(1)}s on ${result.device.label})`);
     results.push(result);
   }

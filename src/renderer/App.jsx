@@ -7,7 +7,7 @@ import { IconAlert, IconUpload, Logo } from "./components/icons";
 import { initialState, reducer } from "./store";
 
 const OPTIONS_KEY = "lucidframe.options.v2";
-const DEFAULT_OPTIONS = { model: "photo", scale: 4, format: "auto", smooth: false };
+const DEFAULT_OPTIONS = { model: "photo", scale: 4, format: "auto", smooth: false, cleanup: "auto", faces: "auto" };
 
 function loadOptions(models) {
   try {
@@ -18,6 +18,8 @@ function loadOptions(models) {
       scale: [2, 3, 4].includes(saved.scale) ? saved.scale : model.scale,
       format: ["auto", "png", "jpeg", "webp"].includes(saved.format) ? saved.format : "auto",
       smooth: saved.smooth === true,
+      cleanup: ["auto", "on", "off"].includes(saved.cleanup) ? saved.cleanup : "auto",
+      faces: ["auto", "always", "off"].includes(saved.faces) ? saved.faces : "auto",
     };
   } catch {
     return { ...DEFAULT_OPTIONS };
@@ -35,6 +37,7 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [runRequest, setRunRequest] = useState(0);
 
   // Refs so the long-running queue loop always sees current values.
   const stateRef = useRef(state);
@@ -180,7 +183,7 @@ export default function App() {
         dispatch({ type: "select", id: next.id });
         let jobId;
         try {
-          ({ jobId } = await lucid.start({ itemId: next.id, model: o.model, scale: o.scale, format: next.kind === "image" ? o.format : "auto", smooth: next.kind === "video" ? o.smooth : false }));
+          ({ jobId } = await lucid.start({ itemId: next.id, model: o.model, scale: o.scale, format: next.kind === "image" ? o.format : "auto", smooth: next.kind === "video" ? o.smooth : false, cleanup: o.cleanup, faces: o.faces }));
         } catch (err) {
           dispatch({ type: "error", id: next.id, message: String(err?.message ?? err).replace(/^Error invoking remote method '[^']+': (Error: )?/, "") });
           continue;
@@ -208,13 +211,18 @@ export default function App() {
       reveal: (p) => lucid.reveal(p).catch(() => {}),
       open: (p) => lucid.open(p).catch((e) => showNotice(String(e?.message ?? e))),
       saveCopy: (p) => lucid.saveCopy(p).then((saved) => saved && showNotice(`Saved a copy to ${saved}`)),
+      // The queue loop reads the item list from the latest render, so it must start after the requeue has rendered.
       redo: (id) => {
         dispatch({ type: "requeue", id });
-        runQueue();
+        setRunRequest((n) => n + 1);
       },
     }),
-    [lucid, runQueue, showNotice],
+    [lucid, showNotice],
   );
+
+  useEffect(() => {
+    if (runRequest > 0) runQueue();
+  }, [runRequest, runQueue]);
 
   const selected = state.items.find((i) => i.id === state.selectedId) ?? null;
   const queuedCount = state.items.filter((i) => i.status === "queued").length;

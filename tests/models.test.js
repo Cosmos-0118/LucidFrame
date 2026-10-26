@@ -33,6 +33,53 @@ describe("model registry", () => {
     }
   });
 
+  it("ships the restore components with their licences, hashes and licence texts", async () => {
+    const tools = registry.listTools();
+    assert.deepEqual(tools.map((t) => [t.id, t.role, t.license]), [
+      ["dejpeg", "cleanup", "CC-BY-4.0"],
+      ["face-detect", "face-detect", "MIT"],
+      ["face-restore", "face-restore", "Apache-2.0"],
+    ]);
+    const texts = { "CC-BY-4.0": "CC-BY-4.0.txt", MIT: "YuNet-MIT.txt", "Apache-2.0": "GFPGAN-Apache-2.0.txt" };
+    for (const t of registry.tools) {
+      assert.ok(tools.find((x) => x.id === t.id).available, `${t.id} file missing`);
+      const file = path.join(defaultModelsDir(), t.file);
+      assert.equal(fs.statSync(file).size, t.size, `${t.id} size`);
+      assert.equal(await sha256File(file), t.sha256, `${t.id} sha256`);
+      assert.match(t.source.sha256, /^[0-9a-f]{64}$/);
+      assert.ok(t.source.revision && t.source.url.startsWith("https://"), `${t.id} must be pinned to an upstream revision`);
+      assert.ok(fs.existsSync(path.join(import.meta.dirname, "..", "licenses", texts[t.license])), `licence text for ${t.id}`);
+    }
+    // models also under CC BY must have the text shipped
+    assert.ok(fs.existsSync(path.join(import.meta.dirname, "..", "licenses", "CC-BY-4.0.txt")));
+  });
+
+  it("keeps pipeline stages out of the model list and models out of the stage lookup", () => {
+    assert.throws(() => registry.get("dejpeg"), /unknown model "dejpeg"/);
+    assert.throws(() => registry.tool("photo"), /missing from the model manifest/);
+    assert.equal(registry.list().some((m) => m.id.startsWith("face")), false);
+  });
+
+  it("refuses a tampered restore component", async () => {
+    const dir = tmpDir();
+    try {
+      fs.copyFileSync(path.join(defaultModelsDir(), "manifest.json"), path.join(dir, "manifest.json"));
+      const src = fs.readFileSync(path.join(defaultModelsDir(), "face-detect.onnx"));
+      const reg = new ModelRegistry(dir);
+      await assert.rejects(reg.resolveTool("face-detect"), /model file missing/);
+      fs.writeFileSync(path.join(dir, "face-detect.onnx"), src.subarray(0, src.length - 4));
+      await assert.rejects(reg.resolveTool("face-detect"), /truncated or corrupt/);
+      const evil = Buffer.from(src);
+      evil[1000] ^= 0xff;
+      fs.writeFileSync(path.join(dir, "face-detect.onnx"), evil);
+      await assert.rejects(reg.resolveTool("face-detect"), /integrity check/);
+      fs.writeFileSync(path.join(dir, "face-detect.onnx"), src);
+      assert.ok((await reg.resolveTool("face-detect")).file.endsWith("face-detect.onnx"));
+    } finally {
+      rm(dir);
+    }
+  });
+
   it("rejects unknown ids with the list of valid ones", () => {
     assert.throws(() => registry.get("nope"), /unknown model "nope" \(available: photo, anime, fast, fast-anime\)/);
   });

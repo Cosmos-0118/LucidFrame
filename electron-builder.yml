@@ -32,6 +32,11 @@ extraResources:
   - from: models
     to: models
     filter: ["*.onnx", manifest.json]
+  # Licence texts and attributions travel with every installer (CC BY, MIT and Apache-2.0 require it).
+  - from: NOTICES.md
+    to: NOTICES.md
+  - from: licenses
+    to: licenses
 
 afterPack: scripts/after-pack.cjs
 

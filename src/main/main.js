@@ -153,7 +153,7 @@ async function startJob(req) {
       const outputDir = settings.get().outputDir ?? undefined;
       const result = await client.request("process", {
         jobId,
-        job: { input: item.path, model: opts.model, scale: opts.scale, format: opts.format, smooth: opts.smooth, outputDir },
+        job: { input: item.path, model: opts.model, scale: opts.scale, format: opts.format, smooth: opts.smooth, cleanup: opts.cleanup, faces: opts.faces, outputDir },
       });
       files.allow(result.output);
       sendToUi("job:event", {
@@ -337,6 +337,13 @@ async function runSelfCheck() {
   }
 }
 
+/** Help → Credits and licences: the attribution file that ships with the app (models, ffmpeg and friends). */
+async function showCredits() {
+  const file = app.isPackaged ? path.join(process.resourcesPath, "NOTICES.md") : path.join(root, "NOTICES.md");
+  const failure = await shell.openPath(file);
+  if (failure) shell.showItemInFolder(file); // no program registered for .md: show where it is
+}
+
 function buildMenu() {
   const isMac = process.platform === "darwin";
   const template = [
@@ -350,6 +357,7 @@ function buildMenu() {
       submenu: [
         { label: "Run self-check…", click: () => runSelfCheck() },
         { label: "Open log folder", click: () => shell.openPath(logsDir) },
+        { label: "Credits and licences", click: () => showCredits() },
         { type: "separator" },
         { label: "Project page", click: () => shell.openExternal(PROJECT_URL) },
       ],

@@ -43,6 +43,7 @@ function dmlDeviceId() {
 }
 
 function sessionOptions(provider, model, size) {
+  const fixedShape = size == null; // model files with static shapes (face detector / restorer)
   const opts = {
     executionProviders: [provider === "dml" ? { name: "dml", deviceId: dmlDeviceId() } : provider],
     graphOptimizationLevel: "all",
@@ -51,7 +52,7 @@ function sessionOptions(provider, model, size) {
   if (provider === "cpu") {
     opts.intraOpNumThreads = Math.max(1, os.availableParallelism());
     // Dynamic shapes: the planner sizes tiles to the image, so no tile is wasted.
-  } else {
+  } else if (!fixedShape) {
     // GPUs: fixed window ⇒ static shapes ⇒ better memory planning and kernel selection.
     opts.freeDimensionOverrides = { h: size, w: size, oh: size * model.scale, ow: size * model.scale };
   }
@@ -82,6 +83,14 @@ export class ModelSession {
     const input = new Tensor("float32", chw.length === 3 * w * h ? chw : chw.subarray(0, 3 * w * h), [1, 3, h, w]);
     const out = await this.session.run({ [this.inputName]: input });
     return out[this.outputName].data;
+  }
+
+  /** Run with explicit named inputs; returns every output as `{data, dims}` (used by the face detector). */
+  async run(feeds) {
+    const inputs = {};
+    for (const [name, { data, dims }] of Object.entries(feeds)) inputs[name] = new Tensor("float32", data, dims);
+    const out = await this.session.run(inputs);
+    return Object.fromEntries(Object.entries(out).map(([k, t]) => [k, { data: t.data, dims: t.dims }]));
   }
 
   async release() {
@@ -162,8 +171,9 @@ export class Runtime {
   async load(model, modelPath, { maxSize = Infinity } = {}) {
     const cached = this.#cache.get(model.id);
     if (cached && cached.maxSize <= maxSize && !this.#failed.has(cached.provider)) return cached;
-    // Only keep one model resident; switching models (or shrinking tiles) frees the old session.
+    // Only keep one tiled model resident; switching models (or shrinking tiles) frees the old session.
     for (const [k, v] of this.#cache) {
+      if (k.startsWith("static:")) continue;
       this.#cache.delete(k);
       await v.release();
     }
@@ -183,6 +193,46 @@ export class Runtime {
         }
       }
       if (provider !== "cpu") this.#failed.add(provider);
+    }
+    throw new Error(`could not load ${model.id} on any device:\n${errors.join("\n")}`);
+  }
+
+  /**
+   * Open a model whose input shape is fixed in the file (face detector, face restorer). These are small
+   * and used alongside the tiled upscalers, so they live in their own cache.
+   * @param {{id:string}} model manifest entry
+   * @param {string} modelPath
+   * @param {number[]} probeDims input shape used to prove the device works, e.g. [1,3,512,512]
+   * @param {{cpuOnly?:boolean}} [opts] tiny models run on CPU: a GPU round trip would cost more than it saves
+   */
+  async loadStatic(model, modelPath, probeDims, { cpuOnly = false } = {}) {
+    const key = `static:${model.id}`;
+    const cached = this.#cache.get(key);
+    if (cached && !this.#failed.has(cached.provider)) return cached;
+
+    const errors = [];
+    for (const provider of cpuOnly ? ["cpu"] : this.providers) {
+      const t0 = performance.now();
+      try {
+        const session = await InferenceSession.create(modelPath, sessionOptions(provider, model, null));
+        const ms = new ModelSession(session, { provider, size: 0, fixed: true, model });
+        if (provider !== "cpu") {
+          try {
+            await ms.run({ [ms.inputName]: { data: new Float32Array(probeDims.reduce((a, b) => a * b, 1)).fill(0.5), dims: probeDims } });
+          } catch (err) {
+            await ms.release();
+            throw err;
+          }
+        }
+        log.info(`loaded ${model.id} on ${provider} in ${(performance.now() - t0).toFixed(0)}ms`);
+        this.#cache.set(key, ms);
+        return ms;
+      } catch (err) {
+        const reason = String(err.message).split("\n")[0];
+        log.warn(`${model.id} on ${provider} unavailable: ${reason}`);
+        errors.push(`${provider}: ${reason}`);
+        if (provider !== "cpu" && !cpuOnly) this.#failed.add(provider);
+      }
     }
     throw new Error(`could not load ${model.id} on any device:\n${errors.join("\n")}`);
   }

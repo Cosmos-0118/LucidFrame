@@ -15,6 +15,18 @@ The ONNX files in `models/` are format conversions of the following pretrained w
 
 Network architectures: RealPLKSR / PLKSR ([Lee et al., "Partial Large Kernel CNNs for Efficient Super-Resolution"](https://arxiv.org/abs/2404.11848), MIT; neosr implementation), DySample ([Liu et al., ICCV 2023](https://arxiv.org/abs/2308.15085)), and the SRVGGNetCompact architecture from [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) (BSD-3-Clause). Training data and procedure are described on each model's page linked above. Conversion uses [spandrel](https://github.com/chaiNNer-org/spandrel) (MIT) and PyTorch (BSD-style) at development time only.
 
+## Restore pipeline components (bundled in `models/`)
+
+| Component | Original | Author | License | Source |
+| --- | --- | --- | --- | --- |
+| `dejpeg` | 1xDeJPG_realplksr_otf | Philip Hofmann (Phhofm) | CC BY 4.0 | https://huggingface.co/Phips/1xDeJPG_realplksr_otf |
+| `face-detect` | YuNet (`face_detection_yunet_2023mar`) | Shiqi Yu et al. (libfacedetection, via OpenCV Zoo) | MIT | https://huggingface.co/opencv/face_detection_yunet |
+| `face-restore` | GFPGAN v1.4 | Tencent ARC Lab (Xintao Wang, Yu Li, Honglun Zhang, Ying Shan) | Apache-2.0 | https://github.com/TencentARC/GFPGAN |
+
+Changes made: `dejpeg` and `face-restore` were converted from PyTorch to ONNX with `tools/convert_models.py` (verified against PyTorch to within 1e-5). For `face-restore` the StyleGAN2 noise inputs were fixed to a seed so results are reproducible, and the weights are *stored* in 8 bits (they are expanded to float32 when the model loads; output differs from the full-precision model by less than 1/200 of a grey level in our checks). `face-detect` is used unmodified.
+
+The full license texts are in the `licenses/` folder (shipped with the app): [CC BY 4.0](licenses/CC-BY-4.0.txt), [MIT (YuNet)](licenses/YuNet-MIT.txt), [Apache-2.0 (GFPGAN)](licenses/GFPGAN-Apache-2.0.txt). GFPGAN was trained on FFHQ and uses a StyleGAN2 prior; see its repository for details and the paper: Wang et al., "Towards Real-World Blind Face Restoration with Generative Facial Prior", CVPR 2021.
+
 ## Runtime components
 
 | Component | License | Used for |
@@ -32,4 +44,4 @@ FFmpeg runs as its own program and is not linked into LucidFrame, so LucidFrame'
 
 ## Removed in v2
 
-LucidFrame v1 used Real-ESRGAN and GFPGAN weights, PyTorch, BasicSR, FastAPI and Google Fonts. None of these are included or contacted by v2.
+LucidFrame v1 used Real-ESRGAN weights, PyTorch, BasicSR, FastAPI and Google Fonts. None of these are included or contacted by v2. (GFPGAN is back, as ONNX, in the Restore pipeline above.)

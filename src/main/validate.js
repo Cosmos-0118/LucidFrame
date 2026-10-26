@@ -5,6 +5,8 @@ import path from "node:path";
 
 const SCALES = [2, 3, 4];
 const FORMATS = ["auto", "png", "jpeg", "webp"];
+const CLEANUP_MODES = ["auto", "on", "off"];
+const FACE_MODES = ["auto", "always", "off"];
 
 /**
  * Validate a "start job" request from the renderer.
@@ -13,13 +15,15 @@ const FORMATS = ["auto", "png", "jpeg", "webp"];
  */
 export function validateStart(req, { models }) {
   if (!req || typeof req !== "object") throw new TypeError("invalid request");
-  const { itemId, model, scale, format = "auto", smooth = false } = req;
+  const { itemId, model, scale, format = "auto", smooth = false, cleanup = "auto", faces = "auto" } = req;
   if (typeof itemId !== "string" || itemId.length > 64) throw new TypeError("invalid item");
   if (typeof model !== "string" || !models.some((m) => m.id === model)) throw new TypeError("unknown model");
   if (!SCALES.includes(scale)) throw new TypeError("scale must be 2, 3 or 4");
   if (!FORMATS.includes(format)) throw new TypeError("invalid output format");
   if (typeof smooth !== "boolean") throw new TypeError("invalid smooth flag");
-  return { itemId, model, scale, format, smooth };
+  if (!CLEANUP_MODES.includes(cleanup)) throw new TypeError("invalid cleanup mode");
+  if (!FACE_MODES.includes(faces)) throw new TypeError("invalid face mode");
+  return { itemId, model, scale, format, smooth, cleanup, faces };
 }
 
 /**

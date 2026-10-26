@@ -8,10 +8,12 @@ import { ffmpegPath, runFfmpeg } from "./ffmpeg.js";
 import { OUTPUT_FORMATS, upscaleImageFile } from "./image.js";
 import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, detectKind } from "./kinds.js";
 import { log } from "./log.js";
+import { CROP, FACE_TEMPLATE } from "./restore/faces.js";
+import { CLEANUP_MODES, FACE_MODES } from "./restore/pipeline.js";
 import { SCALES, UpscaleError, Upscaler } from "./upscaler.js";
 import { upscaleVideoFile } from "./video.js";
 
-export { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, OUTPUT_FORMATS, SCALES, UpscaleError, Upscaler, detectKind };
+export { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, OUTPUT_FORMATS, SCALES, CLEANUP_MODES, FACE_MODES, UpscaleError, Upscaler, detectKind };
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -36,10 +38,16 @@ export class Engine {
     return this.#upscaler.listModels();
   }
 
+  /** The restore pipeline's components (JPEG cleanup, face detector, face restorer). */
+  tools() {
+    return this.#upscaler.registry.listTools();
+  }
+
   async info() {
     return {
       version: appVersion(),
       models: this.models(),
+      restore: this.#upscaler.registry.listTools(),
       device: this.#upscaler.deviceInfo(),
       scales: SCALES,
       formats: OUTPUT_FORMATS,
@@ -90,11 +98,23 @@ export class Engine {
     await check("models", async () => {
       const list = this.models();
       for (const m of list) await this.#upscaler.registry.resolve(m.id); // verifies sha256
-      return `${list.length} models verified (${list.map((m) => m.id).join(", ")})`;
+      const tools = this.#upscaler.registry.listTools();
+      for (const t of tools) await this.#upscaler.registry.resolveTool(t.id);
+      return `${list.length} models + ${tools.length} restore components verified (${[...list, ...tools].map((m) => m.id).join(", ")})`;
     });
     await check("inference", async () => {
       const { model, device } = await this.warm();
       return `${model} ran on ${device.label}`;
+    });
+    await check("restore pipeline", async () => {
+      // One real run of each stage: JPEG cleanup, face detection, and a face restoration on a synthetic face.
+      const gray = (n) => ({ data: Buffer.alloc(n * n * 3, 128), width: n, height: n });
+      await this.#upscaler.cleanRGB(gray(48));
+      await this.#upscaler.findFaces(gray(160));
+      const canvas = gray(CROP);
+      const restored = await this.#upscaler.restoreFaces(canvas, [{ kps: FACE_TEMPLATE, weight: 1 }], { strength: 0.1 });
+      if (restored !== 1) throw new Error("face restoration did not run");
+      return `cleanup, face detection and face restoration ran on ${this.#upscaler.deviceInfo().label}`;
     });
     await check("image codec", async () => `sharp ${sharp.versions.sharp}, libvips ${sharp.versions.vips}`);
     await check("ffmpeg", async () => {
@@ -128,6 +148,11 @@ function validateJob(job) {
   }
   if (job.quality != null && !(Number.isInteger(job.quality) && job.quality >= 1 && job.quality <= 100)) {
     throw new UpscaleError("quality must be an integer 1–100", "bad_request");
+  }
+  if (job.cleanup != null && !CLEANUP_MODES.includes(job.cleanup)) throw new UpscaleError(`cleanup must be one of ${CLEANUP_MODES.join(", ")}`, "bad_request");
+  if (job.faces != null && !FACE_MODES.includes(job.faces)) throw new UpscaleError(`faces must be one of ${FACE_MODES.join(", ")}`, "bad_request");
+  if (job.faceStrength != null && !(typeof job.faceStrength === "number" && job.faceStrength >= 0 && job.faceStrength <= 1)) {
+    throw new UpscaleError("faceStrength must be a number from 0 to 1", "bad_request");
   }
   if (job.output != null && !path.isAbsolute(job.output)) throw new UpscaleError("job.output must be an absolute path", "bad_request");
   if (job.outputDir != null && !path.isAbsolute(job.outputDir)) throw new UpscaleError("job.outputDir must be an absolute path", "bad_request");

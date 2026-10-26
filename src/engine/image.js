@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import sharp from "sharp";
+import { runImagePipeline } from "./restore/pipeline.js";
 import { UpscaleError, resizeRGB } from "./upscaler.js";
 
 // sharp's default is 268 MP; we cap the *input* lower because the working image is 16× bigger at 4×.
@@ -130,6 +131,9 @@ export function partialPath(finalPath) {
  * @param {number} job.scale
  * @param {"auto"|"png"|"jpeg"|"webp"} [job.format]
  * @param {number} [job.quality]
+ * @param {"auto"|"on"|"off"} [job.cleanup] remove JPEG blocking before upscaling ("auto": only when the image needs it)
+ * @param {"auto"|"always"|"off"} [job.faces] redraw faces with a face-restoration model ("auto": small or degraded faces only)
+ * @param {number} [job.faceStrength] 0..1 how much of the restored face replaces the upscaled one (default 0.85)
  * @param {string} [job.outputDir]
  * @param {string} [job.previewDir] where to put a downsized preview for very large results
  * @param {number} [job.previewAbovePixels] result size above which a preview is made (default 16 MP)
@@ -146,12 +150,16 @@ export async function upscaleImageFile(upscaler, job) {
   const { rgb, alpha, warnings } = decoded;
   signal?.throwIfAborted();
 
-  const result = await upscaler.upscaleRGB(rgb, {
+  const { result, restore, warnings: stageWarnings } = await runImagePipeline(upscaler, rgb, {
     model,
     scale,
+    cleanup: job.cleanup,
+    faces: job.faces,
+    faceStrength: job.faceStrength,
     signal,
     onProgress: ({ fraction, message }) => report("upscale", 0.03 + 0.89 * fraction, message),
   });
+  warnings.push(...stageWarnings);
 
   let alphaOut = null;
   if (alpha) {
@@ -208,6 +216,7 @@ export async function upscaleImageFile(upscaler, job) {
     model,
     scale,
     format,
+    restore,
     seconds: (performance.now() - started) / 1000,
     device: upscaler.deviceInfo(),
     warnings,

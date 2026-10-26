@@ -3,6 +3,19 @@ import { IconAlert, IconChip, IconFolder, Logo } from "./icons";
 
 const SCALE_LABELS = { 2: "2×", 3: "3×", 4: "4×" };
 
+function Choice({ name, label, value, choices, onChange, disabled }) {
+  return (
+    <div className="segmented" role="radiogroup" aria-label={label}>
+      {choices.map(([v, text]) => (
+        <label key={v} className={value === v ? "checked" : ""}>
+          <input type="radio" name={name} value={v} checked={value === v} onChange={() => onChange(v)} disabled={disabled} />
+          {text}
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function Device({ device }) {
   const busy = device.state === "detecting";
   const cls = device.state === "error" ? "error" : device.provider && device.provider !== "cpu" ? "gpu" : "cpu";
@@ -21,6 +34,7 @@ export default function Sidebar({ info, device, options, setOptions, selected, h
   const tooBig = dims && !fits(dims.w, dims.h, options.scale, model.scale);
   const slowCpu = device.provider === "cpu" && model.kind === "quality";
   const videoQuality = hasVideo && model.kind === "quality";
+  const restoreReady = (info.restore ?? []).length > 0 && info.restore.every((t) => t.available);
 
   return (
     <aside className="sidebar">
@@ -70,6 +84,28 @@ export default function Sidebar({ info, device, options, setOptions, selected, h
           </p>
         )}
       </section>
+
+      {hasImage && (
+        <section className="group" aria-labelledby="g-restore">
+          <h2 id="g-restore">Restore</h2>
+          {restoreReady ? (
+            <>
+              <div className="option">
+                <span className="option-label">Clean up blur and compression</span>
+                <Choice name="cleanup" label="Clean up blur and compression" value={options.cleanup} onChange={(v) => setOptions({ cleanup: v })} disabled={running} choices={[["auto", "Auto"], ["on", "On"], ["off", "Off"]]} />
+                <p className="hint">Blocky JPEGs and out-of-focus photos are repaired first, so the upscaler doesn’t just enlarge the damage. Auto only acts when it sees it.</p>
+              </div>
+              <div className="option">
+                <span className="option-label">Restore faces</span>
+                <Choice name="faces" label="Restore faces" value={options.faces} onChange={(v) => setOptions({ faces: v })} disabled={running} choices={[["auto", "Auto"], ["always", "Always"], ["off", "Off"]]} />
+                <p className="hint">Rebuilds small, blurry or damaged faces. Auto leaves faces alone that are already detailed. It invents detail, so a likeness can change slightly.</p>
+              </div>
+            </>
+          ) : (
+            <p className="hint">The restore components are missing from this install. Reinstall LucidFrame to enable them.</p>
+          )}
+        </section>
+      )}
 
       {hasImage && (
         <section className="group" aria-labelledby="g-format">
