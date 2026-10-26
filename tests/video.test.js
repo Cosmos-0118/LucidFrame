@@ -8,9 +8,11 @@ import { makeClip, rm, tmpDir } from "./helpers.js";
 
 process.env.LUCIDFRAME_LOG_LEVEL = "error";
 
+// Decode the video stream and read ffmpeg's machine-readable progress (the human stats line on stderr is throttled and
+// platform-dependent, which made this count flaky).
 async function countFrames(file) {
-  const { stderr } = await runFfmpeg(["-hide_banner", "-i", file, "-map", "0:v:0", "-f", "null", "-"]);
-  const m = [...stderr.matchAll(/frame=\s*(\d+)/g)].pop();
+  const { stdout } = await runFfmpeg(["-v", "error", "-nostats", "-progress", "pipe:1", "-i", file, "-map", "0:v:0", "-f", "null", "-"]);
+  const m = [...stdout.toString().matchAll(/^frame=(\d+)$/gm)].pop();
   return m ? Number(m[1]) : 0;
 }
 
@@ -41,8 +43,10 @@ describe("video upscaling (real models, real ffmpeg)", () => {
     assert.equal(out.video.codec, "h264");
     assert.equal(out.audio.codec, "aac");
     assert.ok(Math.abs(out.duration - 1) < 0.1, `duration ${out.duration}`);
-    assert.equal(await countFrames(r.output), await countFrames(input));
-    assert.equal(r.frames, await countFrames(input));
+    const expectedFrames = await countFrames(input);
+    assert.equal(expectedFrames, 30);
+    assert.equal(r.frames, expectedFrames, "frames the engine processed");
+    assert.equal(await countFrames(r.output), expectedFrames, "frames in the written file");
     assert.ok(progress.some((p) => p.frame > 1 && p.fps >= 0));
     assert.equal(progress.at(-1).phase, "done");
     // no partial/temporary files are left behind
