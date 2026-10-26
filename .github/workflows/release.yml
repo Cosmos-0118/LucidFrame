@@ -35,6 +35,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Models are release assets, not git files: cache them by manifest hash so most runs download nothing.
+      - uses: actions/cache@v4
+        with:
+          path: models/*.onnx
+          key: models-${{ hashFiles('models/manifest.json') }}
+      - run: npm run models
       - run: npm test
       # Builds are unsigned. (To sign later, add CSC_LINK / CSC_KEY_PASSWORD as env here. Do not pass them while the
       # secrets are unset: an empty CSC_LINK is treated as a file path and breaks the build.)

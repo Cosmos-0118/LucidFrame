@@ -54,7 +54,7 @@ describe("desktop app", { timeout: 300_000 }, () => {
 
   it("has no filter controls any more", async () => {
     const text = (await page.textContent("body")).toLowerCase();
-    for (const gone of ["brightness", "contrast", "saturation", "exposure", "sharpen", "denoise", "face restore", "text-safe", "auto-enhance", "backend url", "tone preset"]) {
+    for (const gone of ["brightness", "contrast", "saturation", "exposure", "sharpen", "denoise", "text-safe", "auto-enhance", "backend url", "tone preset"]) {
       assert.ok(!text.includes(gone), `UI still mentions "${gone}"`);
     }
   });
@@ -134,5 +134,59 @@ describe("desktop app", { timeout: 300_000 }, () => {
     assert.equal(results.remote, "blocked", "remote fetch must be blocked by CSP");
     assert.equal(results.remoteImage, "refused", "remote images must be blocked by CSP");
     assert.equal(results.mediaFetch, "blocked");
+  });
+});
+
+describe("restore options in the app", { timeout: 300_000 }, () => {
+  let dir;
+  let app;
+  let page;
+
+  before(async () => {
+    dir = tmpDir();
+    // a small, heavily compressed portrait: needs cleanup, and has a small face to restore
+    const input = path.join(dir, "old portrait.jpg");
+    await sharp(path.join(import.meta.dirname, "..", "fixtures", "portrait.jpg")).resize(160).jpeg({ quality: 15 }).toFile(input);
+    app = await electron.launch({
+      executablePath: electronBinary,
+      args: [...sandboxFlags(electronBinary), `--user-data-dir=${path.join(dir, "userdata")}`, root, input],
+      env: { ...process.env, LUCIDFRAME_DEVICE: "cpu", LUCIDFRAME_LOG_LEVEL: "error" },
+    });
+    page = await app.firstWindow();
+    await page.setViewportSize({ width: 1240, height: 900 });
+  });
+
+  after(async () => {
+    await app?.close().catch(() => {});
+    rm(dir);
+  });
+
+  const checked = async (group) => (await page.getByRole("radiogroup", { name: group }).locator("label.checked").textContent()).trim();
+
+  it("offers both restore stages, on Auto by default", async () => {
+    await page.waitForSelector(".row .row-name");
+    assert.equal(await checked("Clean up blur and compression"), "Auto");
+    assert.equal(await checked("Restore faces"), "Auto");
+    assert.match(await page.textContent(".sidebar"), /It invents detail, so a likeness can change slightly/);
+  });
+
+  it("cleans up the compression and restores the face, and says so", async () => {
+    await page.getByText("Fast", { exact: true }).first().click(); // 2×, keeps the test quick
+    await page.getByRole("button", { name: /Upscale 1 file/ }).click();
+    await page.waitForSelector(".compare", { timeout: 180_000 });
+    const chips = await page.locator(".chips .chip").allTextContents();
+    assert.ok(chips.some((c) => /Compression blocks removed|Blocks and blur cleaned up/.test(c)), `chips: ${chips}`);
+    assert.ok(chips.some((c) => /1 face restored/.test(c)), `chips: ${chips}`);
+  });
+
+  it("switching a stage off reaches the engine: the chip disappears on the next run", async () => {
+    await page.getByRole("radiogroup", { name: "Restore faces" }).getByText("Off", { exact: true }).click();
+    await page.getByRole("radiogroup", { name: "Clean up blur and compression" }).getByText("Off", { exact: true }).click();
+    await page.getByRole("button", { name: "Redo" }).click();
+    // the run is quick, so wait for the end state rather than for the progress card
+    await page.waitForFunction(() => !document.querySelector(".chips") && document.querySelector(".compare") && !document.querySelector(".progress-card"), null, { timeout: 180_000 });
+    await page.waitForTimeout(1000);
+    assert.equal(await page.locator(".chips .chip").count(), 0);
+    assert.ok(await page.locator(".compare").isVisible(), "the second run must have produced a comparison");
   });
 });

@@ -36,6 +36,8 @@ export class ModelRegistry {
       throw new Error(`model manifest at ${manifestPath} lists no models`);
     }
     this.models = manifest.models;
+    /** Pipeline stages (JPEG cleanup, face detector, face restorer): never offered as upscalers. */
+    this.tools = Array.isArray(manifest.tools) ? manifest.tools : [];
   }
 
   list() {
@@ -52,6 +54,19 @@ export class ModelRegistry {
     }));
   }
 
+  /** The restore pipeline's stages, with whether their files are present. */
+  listTools() {
+    return this.tools.map((t) => ({
+      id: t.id,
+      role: t.role,
+      name: t.name,
+      license: t.license,
+      author: t.author,
+      available: fs.existsSync(path.join(this.dir, t.file)),
+    }));
+  }
+
+  /** An upscaler by id. Pipeline stages are looked up with `tool()` so a stage can never be picked as a model. */
   get(id) {
     const model = this.models.find((m) => m.id === id);
     if (!model) {
@@ -60,15 +75,29 @@ export class ModelRegistry {
     return model;
   }
 
+  tool(id) {
+    const tool = this.tools.find((t) => t.id === id);
+    if (!tool) throw new Error(`the "${id}" component is missing from the model manifest — reinstall LucidFrame`);
+    return tool;
+  }
+
   /** Absolute path to a model file after verifying its integrity. */
   async resolve(id) {
-    const model = this.get(id);
+    return this.#verify(id, this.get(id));
+  }
+
+  /** Same for a pipeline stage. */
+  async resolveTool(id) {
+    return this.#verify(id, this.tool(id));
+  }
+
+  async #verify(id, model) {
     const file = path.join(this.dir, model.file);
     let stat;
     try {
       stat = await fs.promises.stat(file);
     } catch {
-      throw new Error(`model file missing: ${file} — reinstall LucidFrame`);
+      throw new Error(`model file missing: ${file} — run \`npm run models\` (or reinstall LucidFrame)`);
     }
     const stamp = `${stat.size}:${stat.mtimeMs}`;
     if (this.#verified.get(id) !== stamp) {
@@ -77,7 +106,7 @@ export class ModelRegistry {
       }
       const digest = await sha256File(file);
       if (digest !== model.sha256) {
-        throw new Error(`model ${id} failed its integrity check (sha256 mismatch) — file is corrupt or modified`);
+        throw new Error(`model ${id} failed its integrity check (sha256 mismatch) — file is corrupt or modified — run \`npm run models -- --verify\``);
       }
       this.#verified.set(id, stamp);
       log.debug(`verified ${id}`);

@@ -139,6 +139,11 @@ export default function CompareViewer({ before, after, width, height, beforeLabe
           </div>
         </div>
       </div>
+      {view.mode === "fit" && fitZoom < 0.6 && (
+        <button type="button" className="zoom-hint" onClick={() => zoomAt(1 / zoom, ...center())}>
+          Shown at {percent}% — click to inspect the detail at 100%
+        </button>
+      )}
       <div className="compare-tools" role="group" aria-label="Zoom">
         <button type="button" className="icon-btn" onClick={() => zoomAt(1 / 1.5, ...center())} aria-label="Zoom out" title="Zoom out">
           <IconZoomOut />

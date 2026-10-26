@@ -4,10 +4,16 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { createServer } from "vite";
+import { consoleProgress, ensureModels } from "../src/engine/fetch-models.js";
 import { sandboxFlags } from "../src/main/sandbox.js";
 
 const root = path.resolve(import.meta.dirname, "..");
 const require = createRequire(import.meta.url);
+
+await ensureModels(consoleProgress()).catch((err) => {
+  console.error(`Could not download the AI models: ${err.message}`);
+  process.exit(1);
+});
 
 const server = await createServer({ configFile: path.join(root, "src", "renderer", "vite.config.js") });
 await server.listen();

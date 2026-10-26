@@ -12,10 +12,11 @@ const models = [{ id: "photo" }, { id: "fast" }];
 describe("validateStart", () => {
   const ok = { itemId: "abc", model: "photo", scale: 4 };
   it("accepts a good request and fills defaults", () => {
-    assert.deepEqual(validateStart(ok, { models }), { itemId: "abc", model: "photo", scale: 4, format: "auto", smooth: false });
+    assert.deepEqual(validateStart(ok, { models }), { itemId: "abc", model: "photo", scale: 4, format: "auto", smooth: false, cleanup: "auto", faces: "auto" });
+    assert.deepEqual(validateStart({ ...ok, cleanup: "off", faces: "always" }, { models }).faces, "always");
   });
   it("rejects everything else", () => {
-    for (const bad of [null, "x", 5, {}, { ...ok, model: "../../etc/passwd" }, { ...ok, model: "nope" }, { ...ok, scale: 5 }, { ...ok, scale: "4" }, { ...ok, format: "exe" }, { ...ok, smooth: "yes" }, { ...ok, itemId: 7 }, { ...ok, itemId: "x".repeat(100) }]) {
+    for (const bad of [null, "x", 5, {}, { ...ok, model: "../../etc/passwd" }, { ...ok, model: "nope" }, { ...ok, scale: 5 }, { ...ok, scale: "4" }, { ...ok, format: "exe" }, { ...ok, smooth: "yes" }, { ...ok, cleanup: "maybe" }, { ...ok, faces: true }, { ...ok, faces: "ALWAYS" }, { ...ok, itemId: 7 }, { ...ok, itemId: "x".repeat(100) }]) {
       assert.throws(() => validateStart(bad, { models }), TypeError, JSON.stringify(bad));
     }
   });

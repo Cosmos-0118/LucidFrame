@@ -4,7 +4,8 @@
 
 ![LucidFrame comparing an original photo (left) with its 4× upscale (right)](docs/screenshot.jpg)
 
-- **Modern models** — RealPLKSR (2024) for photos and anime, a compact network for fast video. Faces, fur and text come back sharp without a separate "face restore" step.
+- **Modern models** — RealPLKSR (2024) for photos and anime, a compact network for fast video.
+- **Restore pipeline** — several models work together. Blocky JPEGs and out-of-focus photos are repaired *before* upscaling, and small or damaged faces are rebuilt afterwards. It decides by itself what an image needs. [Details and results below.](#restore-multiple-models-working-together)
 - **Photos and video** — images up to 4×; video keeps its frame rate and audio, with optional motion-interpolated "smooth" playback.
 - **Fast on whatever you have** — DirectML on any Windows GPU (NVIDIA, AMD, Intel), CoreML on Apple Silicon, CPU everywhere. It picks the best one and falls back automatically if something goes wrong.
 - **Private by design** — no network access, no listening port, no telemetry. Originals are never modified or overwritten.
@@ -33,7 +34,7 @@ npm install
 npm start
 ```
 
-`npm start` builds the interface if needed and opens the app. Everything else (the engine, models, ffmpeg) is already in place.
+`npm start` builds the interface if needed, downloads the AI model files the first time (about 180 MB, checked against pinned SHA-256 hashes, so it resumes cleanly if interrupted) and opens the app. After that it works offline. To fetch them ahead of time: `npm run models`. Installers already contain the models and never download anything.
 
 ## Using it
 
@@ -42,9 +43,44 @@ npm start
 3. Click **Upscale**. Results are saved **next to the original** as `name_lucid_4x.png` (or into a folder you choose). Existing files are never overwritten.
 4. Drag the divider to compare, scroll to zoom, double-click to jump between fit and 100%.
 
+### Restore: multiple models working together
+
+An upscaler can only enlarge what is in the picture. If the picture is a low-quality JPEG, it enlarges the compression blocks; if it is out of focus, it enlarges the blur; if a face is a few dozen pixels wide, it invents a wrong one. So LucidFrame runs a small pipeline around the upscaler, entirely on your machine:
+
+```
+ photo ─► 1. Clean up ─► 2. Upscale ─► 3. Restore faces ─► result
+          (blocks, blur)   (your model)   (small / damaged faces)
+```
+
+1. **Clean up** (RealPLKSR 1×, trained on JPEG damage and blur). In **Auto** it runs only when it detects 8×8 JPEG blocking or a soft, out-of-focus image, and blends in more gently for borderline cases. Clean, sharp photos are left alone (forcing it on those makes them *worse*).
+2. **Upscale** with the model you chose.
+3. **Restore faces** (YuNet finds faces and landmarks, GFPGAN 1.4 rebuilds each aligned face, and the result is colour-matched and blended in through a soft mask). In **Auto** it acts on small or degraded faces and fades out as a face gets large and already detailed; **Always** restores every face.
+
+Each stage can be set to Auto, On/Always or Off in the app (**Restore** section) or on the command line (`--cleanup`, `--faces`). The result bar says what was applied.
+
+![Input, photo model only, LucidFrame Restore and the original, for three kinds of damage](docs/restore-compare.jpg)
+
+Perceptual distance to the original, measured with LPIPS (lower is better) on the example above, 4× results compared at the original size:
+
+| Input | Method | Face | Whole image |
+| --- | --- | --- | --- |
+| 192 px wide, JPEG q20 | Bicubic | 0.409 | 0.408 |
+| | Photo model only | 0.119 | 0.210 |
+| | **Restore (auto)** | **0.100** | **0.188** |
+| 320 px wide, JPEG q15 | Bicubic | 0.238 | 0.265 |
+| | Photo model only | 0.109 | 0.171 |
+| | **Restore (auto)** | **0.079** | **0.163** |
+| Out of focus, JPEG q60 | Bicubic | 0.445 | 0.346 |
+| | Photo model only | 0.426 | 0.322 |
+| | **Restore (auto)** | **0.055** | **0.145** |
+| 384 px wide, JPEG q70 (mild) | Photo model only | 0.032 | 0.090 |
+| | **Restore (auto)** | 0.029 | 0.090 |
+
+Honest notes: these are synthetic degradations of one public-domain portrait (NASA's official photograph of Eileen Collins), plus checks on other photos in the test suite, not a benchmark. PSNR/SSIM do not improve in the hardest cases (they penalise any invented detail), which is why LPIPS is shown. The last row shows Auto doing nothing harmful when little is wrong. **Face restoration invents plausible detail**, so a person's likeness can change slightly: keep it on Auto or switch it off if fidelity matters more than looks. Block-aligned pixel art can be mistaken for compression; set cleanup to Off for it.
+
 ### Models
 
-All four ship with the app and run offline.
+All four upscalers ship with the app and run offline, together with the three Restore components (about 115 MB).
 
 | Model | Scale | Best for | Speed* |
 | --- | --- | --- | --- |
@@ -66,11 +102,16 @@ npm run cli -- *.png -m anime --out-dir out    # batch
 npm run cli -- doctor                          # verify models, GPU/CPU inference, codecs, ffmpeg
 ```
 
-Run `npm run cli -- --help` for every option (`--format`, `--quality`, `--smooth`, `--device`, `--json`…).
+```bash
+npm run cli -- old-portrait.jpg --cleanup on --faces always    # force both Restore stages
+npm run cli -- logo.png --cleanup off --faces off              # plain upscale, no extras
+```
+
+Run `npm run cli -- --help` for every option (`--format`, `--quality`, `--smooth`, `--cleanup`, `--faces`, `--face-strength`, `--device`, `--json`…).
 
 ## Troubleshooting
 
-Use **Help → Run self-check…** in the app (press Alt to show the menu on Windows/Linux), or `npm run doctor` from source. It checks that the models are intact, runs a real inference, and reports which device is used, in about a second.
+Use **Help → Run self-check…** in the app (press Alt to show the menu on Windows/Linux), or `npm run doctor` from source. It checks that the models and Restore components are intact, runs a real inference and each Restore stage, and reports which device is used, in a few seconds.
 
 - **It's slow.** Check the device chip in the bottom-left of the app. "CPU" means no GPU was found; use the **Fast** model, or a smaller scale. On Windows and Apple Silicon a GPU is used automatically.
 - **Logs** live in `%APPDATA%\LucidFrame\logs` (Windows), `~/Library/Application Support/LucidFrame/logs` (macOS) or `~/.config/LucidFrame/logs` (Linux). **Help → Open log folder** opens them.
@@ -94,6 +135,7 @@ The Windows (DirectML) and macOS (CoreML) builds are GPU-accelerated with no ext
 
 - **Engine** (`src/engine`): tiled inference with mirrored context and cross-faded overlaps (no visible seams), automatic device selection (DirectML → CUDA → CoreML → CPU) with fallback to smaller tiles and then CPU if a GPU runs out of memory. Videos stream through two ffmpeg processes — decode → model → encode — so no frames are written to disk, the frame rate is preserved and audio is carried over.
 - **App** (`src/main`, `src/renderer`): the UI never touches the filesystem or the network. It refers to files by id, media is served through unguessable tokens, every IPC call is validated, and a strict Content-Security-Policy forbids remote code. The engine runs in its own process, so a crash can't take the window down.
+- **Restore** (`src/engine/restore`): blockiness and softness detectors, YuNet face detection, similarity-transform alignment, GFPGAN restoration, colour matching and mask blending. Optional stages: if one cannot run, the job still finishes and says so.
 - **Models** (`models/`): ONNX files verified by SHA-256 before use. `tools/convert_models.py` rebuilds them from the pinned upstream weights.
 
 ## Development
@@ -108,7 +150,11 @@ npm run dist         # installer for the current OS (CI builds all three: see .g
 
 To cut a release, push a tag like `v2.0.0`; GitHub Actions builds the Windows, macOS and Linux installers and attaches them to the release.
 
-Converting or adding models needs Python once (see the header of `tools/convert_models.py`); end users and normal development never do.
+### Where the model files live
+
+The converted `.onnx` files (about 180 MB) are **not in git**: they are assets of a GitHub release named by `"release"` in `models/manifest.json`, and the manifest pins each file's size and SHA-256. `npm run models` (also run automatically by `npm start`, `npm test`, `npm run pack` and CI) downloads whatever is missing, refuses anything whose hash does not match, and leaves no half-written files. CI caches them by manifest hash. Set `LUCIDFRAME_MODELS_URL` to use a mirror.
+
+To change a model: run `tools/convert_models.py --release models-N` (needs Python once; see its header), upload the resulting `.onnx` files as assets of a new release tagged `models-N` (a normal GitHub release; untick "Set as the latest release"), and commit the updated `models/manifest.json`. End users and normal development never need Python.
 
 ## Upgrading from v1
 
@@ -121,7 +167,7 @@ v1 was a Python/FastAPI backend (PyTorch, Real-ESRGAN, GFPGAN) started alongside
 | Models | Real-ESRGAN x4plus/x2plus/anime (2021), GFPGAN | RealPLKSR (2024) and compact models, bundled |
 | Video | Every frame written to PNG, fixed 25 fps | Streamed through ffmpeg, original fps and audio kept |
 | Filters | Sharpen, denoise, brightness, contrast, saturation, presets | Removed — models do the enhancing |
-| Face restore | GFPGAN toggle | Removed — the new models handle faces well on their own |
+| Face restore | GFPGAN toggle (PyTorch) | Restore pipeline: GFPGAN 1.4 in ONNX, with face detection and alignment, plus JPEG/blur cleanup |
 | Platforms | Windows only | Windows, macOS (Apple Silicon), Linux |
 
 ## Credits & licenses

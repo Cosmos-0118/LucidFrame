@@ -45,7 +45,7 @@ describe("command line", () => {
     const report = JSON.parse(stdout);
     assert.equal(code, 0, stdout);
     assert.equal(report.ok, true);
-    assert.deepEqual(report.checks.map((c) => c.name), ["models", "inference", "image codec", "ffmpeg"]);
+    assert.deepEqual(report.checks.map((c) => c.name), ["models", "inference", "restore pipeline", "image codec", "ffmpeg"]);
   });
 
   it("upscales an image and reports machine-readable results", async () => {

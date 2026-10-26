@@ -32,6 +32,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Models are release assets, not git files: cache them by manifest hash so most runs download nothing.
+      - uses: actions/cache@v4
+        with:
+          path: models/*.onnx
+          key: models-${{ hashFiles('models/manifest.json') }}
+      - run: npm run models
       - name: Known vulnerabilities (runtime dependencies)
         if: runner.os == 'Linux'
         run: npm audit --omit=dev --audit-level=low

@@ -1,5 +1,6 @@
 {
-  "version": 2,
+  "version": 4,
+  "release": "models-3",
   "models": [
     {
       "id": "photo",
@@ -71,6 +72,59 @@
         "url": "https://huggingface.co/Phips/2xHFA2kCompact",
         "revision": "09a1cc48be61cbb4a97d82ae440ad2fa06cb4a5c",
         "sha256": "c20226f86e4f2a0c601e56776cce537336dcbb95c633bca011e801553e3833ff"
+      }
+    }
+  ],
+  "tools": [
+    {
+      "id": "dejpeg",
+      "name": "JPEG cleanup",
+      "role": "cleanup",
+      "description": "RealPLKSR (1x) trained to remove JPEG blocking and ringing. Runs before upscaling so the upscaler never mistakes compression blocks for detail.",
+      "scale": 1,
+      "file": "dejpeg.onnx",
+      "size": 29798758,
+      "sha256": "33cddafa014332055563de548ea7ea49b893a8c7093178b4a4ea560ad20dfa36",
+      "license": "CC-BY-4.0",
+      "author": "Philip Hofmann (Phhofm)",
+      "source": {
+        "url": "https://huggingface.co/Phips/1xDeJPG_realplksr_otf",
+        "revision": "9e7edaab3a849ec206b622bad1fe61826c40777d",
+        "sha256": "bfc0b9a1163bf20eb18479e1f4faa0ece1b4d5ce59759be8b843d6ef32d1890f"
+      }
+    },
+    {
+      "id": "face-detect",
+      "name": "Face detector",
+      "role": "face-detect",
+      "description": "YuNet, a tiny CNN face detector (about 230 KB) that also reports five facial landmarks, used to align faces for restoration.",
+      "scale": 1,
+      "file": "face-detect.onnx",
+      "size": 232589,
+      "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+      "license": "MIT",
+      "author": "Shiqi Yu et al. (libfacedetection / OpenCV Zoo)",
+      "source": {
+        "url": "https://huggingface.co/opencv/face_detection_yunet",
+        "revision": "3cc26e7f1014a5ee5d74a42acee58bafc9d0a310",
+        "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4"
+      }
+    },
+    {
+      "id": "face-restore",
+      "name": "Face restoration",
+      "role": "face-restore",
+      "description": "GFPGAN v1.4 (StyleGAN2 facial prior) rebuilds eyes, skin and hair on aligned 512 px face crops. Weights are stored in 8 bits to keep the download small.",
+      "scale": 1,
+      "file": "face-restore.onnx",
+      "size": 85596126,
+      "sha256": "68e6da38addcee30b50893428acf417f04a451a3e1bcc7e83a30cf133d77372f",
+      "license": "Apache-2.0",
+      "author": "Tencent ARC Lab (Xintao Wang et al.)",
+      "source": {
+        "url": "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth",
+        "revision": "v1.3.0",
+        "sha256": "e2cd4703ab14f4d01fd1383a8a8b266f9a5833dacee8e6a79d3bf21a1b6be5ad"
       }
     }
   ]

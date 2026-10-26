@@ -48,6 +48,20 @@ function ResultBar({ item, actions }) {
           </>
         )}
       </div>
+      {(r.restore?.cleanup?.applied || r.restore?.faces?.restored > 0) && (
+        <div className="chips" aria-label="Restoration applied">
+          {r.restore.cleanup.applied && (
+            <span className="chip">
+              {r.restore.cleanup.reasons?.includes("blur") && r.restore.cleanup.reasons?.includes("blocks")
+                ? "Blocks and blur cleaned up"
+                : r.restore.cleanup.reasons?.includes("blur")
+                  ? "Blur reduced"
+                  : "Compression blocks removed"}
+            </span>
+          )}
+          {r.restore.faces.restored > 0 && <span className="chip">{r.restore.faces.restored === 1 ? "1 face restored" : `${r.restore.faces.restored} faces restored`}</span>}
+        </div>
+      )}
       {r.warnings?.map((w) => (
         <div className="inline-warning" key={w}>
           <IconAlert size={14} /> {w}
