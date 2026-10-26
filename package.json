@@ -1,72 +1,49 @@
 {
   "name": "lucidframe",
-  "version": "1.0.1",
+  "version": "2.0.0",
+  "description": "Offline AI image and video upscaler. One install, no setup.",
   "private": true,
-  "engines": {
-    "node": ">=18"
-  },
-  "main": "electron/main.js",
-  "scripts": {
-    "dev": "vite --config frontend/vite.config.js",
-    "build:front": "vite build --config frontend/vite.config.js",
-    "build:backend": ".\\.venv\\Scripts\\python.exe -m PyInstaller --clean --noconfirm --onefile --noconsole --name backend --distpath build/backend-dist --workpath build/backend-build --collect-submodules fastapi --collect-submodules uvicorn --collect-submodules basicsr --collect-submodules gfpgan --hidden-import=torchvision.transforms.functional_tensor --collect-all backend --collect-all basicsr --collect-all realesrgan --collect-all gfpgan --collect-data basicsr --collect-data realesrgan --collect-data gfpgan --collect-binaries torch --collect-binaries torchvision --collect-binaries torchaudio --collect-binaries numba --add-data \"backend;backend\" --add-data \".venv/Lib/site-packages/basicsr;basicsr\" --add-data \".venv/Lib/site-packages/basicsr/archs;basicsr/archs\" --add-data \".venv/Lib/site-packages/realesrgan;realesrgan\" --add-data \".venv/Lib/site-packages/realesrgan/archs;realesrgan/archs\" --add-data \".venv/Lib/site-packages/gfpgan;gfpgan\" --add-data \".venv/Lib/site-packages/gfpgan/archs;gfpgan/archs\" scripts/backend_entry.py",
-    "build:all": "node scripts/build-all.js",
-    "dev:electron": "cross-env ELECTRON_DEV_SERVER_URL=http://localhost:5173 electron .",
-    "dist:win": "npm run build:front && electron-builder -w",
-    "dist:mac": "npm run build:front && electron-builder -m",
-    "dist:linux": "npm run build:front && electron-builder -l",
-    "preview": "vite preview --config frontend/vite.config.js"
-  },
+  "license": "MIT",
+  "author": "Cosmos-0118",
+  "homepage": "https://github.com/Cosmos-0118/LucidFrame",
   "type": "module",
+  "main": "src/main/main.js",
+  "bin": {
+    "lucidframe": "bin/lucidframe.js"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "node scripts/dev.mjs",
+    "build": "vite build --config src/renderer/vite.config.js",
+    "test": "node --test tests/*.test.js",
+    "test:e2e": "node --test tests/e2e/*.e2e.mjs",
+    "doctor": "node bin/lucidframe.js doctor",
+    "icon": "node scripts/make-icon.mjs",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "pack": "npm run build && electron-builder --dir",
+    "smoke:packaged": "node scripts/smoke-packaged.mjs",
+    "cli": "node bin/lucidframe.js"
+  },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "ffmpeg-static": "^5.3.0",
+    "onnxruntime-node": "^1.30.0",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^5.0.4",
-    "vite": "^5.2.8",
-    "electron": "^29.3.0",
-    "electron-builder": "^24.13.3",
-    "cross-env": "^7.0.3"
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
+    "playwright-core": "^1.64.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vite": "^8.3.5"
   },
-  "build": {
-    "appId": "com.lucidframe.app",
-    "productName": "LucidFrame",
-    "icon": "resources/AppIcon.png",
-    "files": [
-      "electron/main.js",
-      "frontend/dist/**/*",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "models",
-        "to": "models"
-      },
-      {
-        "from": "bin/ffmpeg.exe",
-        "to": "bin/ffmpeg.exe"
-      },
-      {
-        "from": "build/backend-dist/backend.exe",
-        "to": "backend/backend.exe"
-      }
-    ],
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "win": {
-      "icon": "resources/AppIcon.png"
-    },
-    "mac": {
-      "target": ["dmg"],
-      "category": "public.app-category.video"
-    },
-    "linux": {
-      "target": ["AppImage"],
-      "category": "Video"
-    }
-  }
+  "desktopName": "lucidframe.desktop",
+  "productName": "LucidFrame"
 }
