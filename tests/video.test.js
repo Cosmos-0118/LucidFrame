@@ -16,6 +16,14 @@ async function countFrames(file) {
   return m ? Number(m[1]) : 0;
 }
 
+// Packet-level dump of a file's video stream, attached to assertion messages so a failure on a machine we can't
+// reproduce on (CI) shows what was actually written.
+async function describeVideo(file) {
+  const info = await runFfmpeg(["-hide_banner", "-i", file]);
+  const crc = await runFfmpeg(["-v", "error", "-i", file, "-map", "0:v:0", "-c", "copy", "-f", "framecrc", "-"]);
+  return `${info.stderr.split("\n").filter((l) => /Stream|Duration/.test(l)).join("\n")}\n${crc.stdout.toString().split("\n").slice(0, 40).join("\n")}`;
+}
+
 describe("video upscaling (real models, real ffmpeg)", () => {
   let engine;
   let dir;
@@ -46,7 +54,8 @@ describe("video upscaling (real models, real ffmpeg)", () => {
     const expectedFrames = await countFrames(input);
     assert.equal(expectedFrames, 30);
     assert.equal(r.frames, expectedFrames, "frames the engine processed");
-    assert.equal(await countFrames(r.output), expectedFrames, "frames in the written file");
+    const written = await countFrames(r.output);
+    assert.equal(written, expectedFrames, `frames in the written file\n${written === expectedFrames ? "" : await describeVideo(r.output)}`);
     assert.ok(progress.some((p) => p.frame > 1 && p.fps >= 0));
     assert.equal(progress.at(-1).phase, "done");
     // no partial/temporary files are left behind
