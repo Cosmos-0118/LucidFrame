@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Linux x64 would otherwise download ~270 MB of CUDA provider libraries that CI can't use.
+  ONNXRUNTIME_NODE_INSTALL: skip
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Known vulnerabilities (runtime dependencies)
+        if: runner.os == 'Linux'
+        run: npm audit --omit=dev --audit-level=low
+      - run: npm run build
+      - name: Unit and engine tests
+        run: npm test
+      - name: Self-check (picks the best device this runner has, falls back to CPU)
+        run: npm run doctor
+      - name: Desktop app end-to-end (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:e2e
+      - name: Desktop app end-to-end
+        if: runner.os != 'Linux'
+        run: npm run test:e2e
+      - name: Package and smoke-test the installed app
+        run: |
+          npm run pack
+          npm run smoke:packaged
