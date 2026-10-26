@@ -5,6 +5,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Attach the installers to the existing GitHub release with this tag (e.g. v2.0.0). Leave empty to only build."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -17,6 +22,8 @@ jobs:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
+    # The macOS build is a bonus: if it fails it must not block the Windows and Linux installers.
+    continue-on-error: ${{ matrix.os == 'macos-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -29,14 +36,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # Builds are unsigned. (To sign later, add CSC_LINK / CSC_KEY_PASSWORD as env here. Do not pass them while the
+      # secrets are unset: an empty CSC_LINK is treated as a file path and breaks the build.)
       - run: npm run dist -- --publish never
-        env:
-          # Optional: set these repository secrets to sign/notarize. Unsigned builds still work.
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       - uses: actions/upload-artifact@v4
         with:
           name: installers-${{ matrix.os }}
@@ -50,7 +52,7 @@ jobs:
   publish:
     name: Publish release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -59,5 +61,6 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: installers/*
           generate_release_notes: true
