@@ -408,15 +408,18 @@ def main() -> None:
     ap.add_argument("--weights", type=Path, required=True)
     ap.add_argument("--out", type=Path, default=ROOT / "models")
     ap.add_argument("--only", nargs="*", help="model ids to (re)convert")
+    ap.add_argument("--release", help="GitHub release tag the finished files will be uploaded to (default: keep the manifest's)")
     args = ap.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
     manifest_path = args.out / "manifest.json"
     existing = existing_tools = {}
+    release = args.release
     if manifest_path.exists():
         previous = json.loads(manifest_path.read_text())
         existing = {m["id"]: m for m in previous["models"]}
         existing_tools = {m["id"]: m for m in previous.get("tools", [])}
+        release = release or previous.get("release")
 
     models = []
     for entry in SOURCES:
@@ -433,9 +436,12 @@ def main() -> None:
         build = copy_onnx if entry.get("copy") else convert_face if entry.get("face") else convert
         tools.append(build(entry, args.weights, args.out))
 
-    manifest = {"version": 3, "models": models, "tools": tools}
+    if not release:
+        sys.exit("pass --release <tag>: the GitHub release the converted files will be uploaded to, e.g. models-1")
+    manifest = {"version": 4, "release": release, "models": models, "tools": tools}
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"wrote {manifest_path}")
+    print(f"Next: upload the .onnx files in {args.out} as assets of release '{release}', commit manifest.json.")
 
 
 if __name__ == "__main__":

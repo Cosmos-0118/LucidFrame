@@ -34,7 +34,7 @@ npm install
 npm start
 ```
 
-`npm start` builds the interface if needed and opens the app. Everything else (the engine, models, ffmpeg) is already in place.
+`npm start` builds the interface if needed, downloads the AI model files the first time (about 180 MB, checked against pinned SHA-256 hashes, so it resumes cleanly if interrupted) and opens the app. After that it works offline. To fetch them ahead of time: `npm run models`. Installers already contain the models and never download anything.
 
 ## Using it
 
@@ -150,7 +150,11 @@ npm run dist         # installer for the current OS (CI builds all three: see .g
 
 To cut a release, push a tag like `v2.0.0`; GitHub Actions builds the Windows, macOS and Linux installers and attaches them to the release.
 
-Converting or adding models needs Python once (see the header of `tools/convert_models.py`); end users and normal development never do.
+### Where the model files live
+
+The converted `.onnx` files (about 180 MB) are **not in git**: they are assets of a GitHub release named by `"release"` in `models/manifest.json`, and the manifest pins each file's size and SHA-256. `npm run models` (also run automatically by `npm start`, `npm test`, `npm run pack` and CI) downloads whatever is missing, refuses anything whose hash does not match, and leaves no half-written files. CI caches them by manifest hash. Set `LUCIDFRAME_MODELS_URL` to use a mirror.
+
+To change a model: run `tools/convert_models.py --release models-N` (needs Python once; see its header), upload the resulting `.onnx` files as assets of a new release tagged `models-N` (a normal GitHub release; untick "Set as the latest release"), and commit the updated `models/manifest.json`. End users and normal development never need Python.
 
 ## Upgrading from v1
 

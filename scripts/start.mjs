@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { consoleProgress, ensureModels } from "../src/engine/fetch-models.js";
 import { sandboxFlags } from "../src/main/sandbox.js";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -20,12 +21,36 @@ function newestMtime(dir) {
   return newest;
 }
 
+/** Source checkouts do not contain the model files (they are downloaded once, about 180 MB). */
+async function getModels() {
+  let said = false;
+  const progress = consoleProgress();
+  try {
+    await ensureModels({
+      ...progress,
+      onFile: (e) => {
+        if (e.state === "downloading" && !said) {
+          said = true;
+          console.log("Downloading the AI models (first run only, about 180 MB)…");
+        }
+        progress.onFile(e);
+      },
+    });
+  } catch (err) {
+    console.error(`\nCould not download the AI models: ${err.message}`);
+    console.error("Check your connection and run `npm start` again (it resumes where it stopped).");
+    process.exit(1);
+  }
+}
+
 const stale = !fs.existsSync(distIndex) || fs.statSync(distIndex).mtimeMs < newestMtime(path.join(root, "src", "renderer"));
 if (stale) {
   console.log("Building the interface…");
   const { build } = await import("vite");
   await build({ configFile: path.join(root, "src", "renderer", "vite.config.js"), logLevel: "warn" });
 }
+
+await getModels();
 
 let electron;
 try {

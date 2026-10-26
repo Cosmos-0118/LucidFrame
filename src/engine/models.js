@@ -97,7 +97,7 @@ export class ModelRegistry {
     try {
       stat = await fs.promises.stat(file);
     } catch {
-      throw new Error(`model file missing: ${file} — reinstall LucidFrame`);
+      throw new Error(`model file missing: ${file} — run \`npm run models\` (or reinstall LucidFrame)`);
     }
     const stamp = `${stat.size}:${stat.mtimeMs}`;
     if (this.#verified.get(id) !== stamp) {
@@ -106,7 +106,7 @@ export class ModelRegistry {
       }
       const digest = await sha256File(file);
       if (digest !== model.sha256) {
-        throw new Error(`model ${id} failed its integrity check (sha256 mismatch) — file is corrupt or modified`);
+        throw new Error(`model ${id} failed its integrity check (sha256 mismatch) — file is corrupt or modified — run \`npm run models -- --verify\``);
       }
       this.#verified.set(id, stamp);
       log.debug(`verified ${id}`);

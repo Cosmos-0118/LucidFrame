@@ -8,6 +8,7 @@
 
 import path from "node:path";
 import { parseArgs } from "node:util";
+import { consoleProgress, ensureModels } from "../src/engine/fetch-models.js";
 import { Engine, appVersion, detectKind, CLEANUP_MODES, FACE_MODES, OUTPUT_FORMATS, SCALES } from "../src/engine/index.js";
 
 const HELP = `LucidFrame ${appVersion()} — offline AI image & video upscaler
@@ -72,6 +73,15 @@ const fail = (msg) => {
   else console.error(`error: ${msg}`);
   process.exit(1);
 };
+
+// A source checkout has no model files until the first run; installers and the downloaded copies skip this instantly.
+if (positionals[0] !== "models") {
+  try {
+    await ensureModels(json ? {} : consoleProgress());
+  } catch (err) {
+    fail(`${err.message}\nCheck your connection, or run \`npm run models\` when you are online.`);
+  }
+}
 
 const engine = new Engine({ device: values.device });
 const abort = new AbortController();

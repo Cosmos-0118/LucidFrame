@@ -19,3 +19,7 @@ __pycache__/
 # local test output
 *.partial.*
 .lucidframe-test/
+
+# Model files are published as release assets and fetched by `npm run models` (see src/engine/fetch-models.js)
+models/*.onnx
+models/*.download
