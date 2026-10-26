@@ -1,6 +1,7 @@
 // The old design ran a FastAPI server on localhost:8000 with CORS "*", which any web page open in the
 // user's browser could call. The new app must not listen on any port at all.
-// Linux only (reads /proc); launched without Playwright because its debug endpoint is itself a listener.
+// Linux only (reads /proc); outgoing connections are fine, listening sockets are not.
+// launched without Playwright because its debug endpoint is itself a listener.
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -69,7 +70,11 @@ describe("network exposure", { skip: process.platform !== "linux" }, () => {
         const lines = fs.existsSync(`/proc/net/${table}`) ? fs.readFileSync(`/proc/net/${table}`, "utf8").split("\n").slice(1) : [];
         for (const line of lines) {
           const f = line.trim().split(/\s+/);
-          if (f.length > 9 && inodes.has(f[9]) && (table.startsWith("udp") || f[3] === "0A")) listening.push(`${table} ${f[1]}`);
+          if (f.length < 10 || !inodes.has(f[9])) continue;
+          // TCP: state 0A is LISTEN. UDP: a socket still unconnected (remote 0.0.0.0:0) can receive from anyone; one
+          // connected to a remote address (e.g. Chromium talking to the DNS server) is an outgoing client.
+          const unconnected = /^0+:0+$/.test(f[2]);
+          if (table.startsWith("udp") ? unconnected : f[3] === "0A") listening.push(`${table} local ${f[1]} remote ${f[2]}`);
         }
       }
       assert.deepEqual(listening, [], "the app must not listen on any port");
