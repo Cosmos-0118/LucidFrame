@@ -14,6 +14,7 @@ import {
   decodeYuNet,
   faceMask,
   invertTransform,
+  isPlausibleRestoration,
   iou,
   keepColours,
   nonMaxSuppression,
@@ -298,6 +299,18 @@ describe("face detector output", () => {
     const kept = nonMaxSuppression(faces);
     assert.deepEqual(kept.map((f) => f.score), [0.9, 0.7]);
     assert.equal(iou([0, 0, 10, 10], [20, 20, 30, 30]), 0);
+  });
+});
+
+describe("GPU sanity check", () => {
+  const input = new Float32Array(3 * 64 * 64).fill(0.5);
+  it("accepts a restoration that stays close to its input and rejects garbage", () => {
+    const near = Float32Array.from(input, (v, i) => v + ((i % 7) - 3) * 0.02);
+    assert.ok(isPlausibleRestoration(input, near));
+    assert.equal(isPlausibleRestoration(input, new Float32Array(input.length).fill(NaN)), false);
+    assert.equal(isPlausibleRestoration(input, new Float32Array(input.length).fill(1)), false, "a white frame is not this face");
+    assert.equal(isPlausibleRestoration(input, Float32Array.from(input, (_, i) => (i % 2 ? 0 : 1))), false, "noise");
+    assert.equal(isPlausibleRestoration(input, new Float32Array(10)), false, "too short");
   });
 });
 

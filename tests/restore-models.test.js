@@ -169,3 +169,31 @@ describe("restore pipeline with the real models", () => {
     });
   });
 });
+
+describe("face restoration falls back to the CPU when a GPU misbehaves", () => {
+  it("retries on the CPU after an implausible GPU result", async () => {
+    const up = new Upscaler({ device: "cpu" });
+    const real = up.runtime;
+    const failed = [];
+    const garbage = new Float32Array(3 * CROP * CROP).fill(NaN);
+    let loads = 0;
+    // First load pretends to be a GPU that returns NaNs; the second is the real CPU session.
+    up.runtime = {
+      markFailed: (p) => failed.push(p),
+      loadStatic: async (model, file, dims, opts) => {
+        loads++;
+        if (loads > 1) return real.loadStatic(model, file, dims, opts);
+        return { provider: "dml", infer: async () => garbage, release: async () => {} };
+      },
+      dispose: () => real.dispose(),
+    };
+    const img = { data: Buffer.alloc(600 * 600 * 3, 120), width: 600, height: 600 };
+    const restored = await up.restoreFaces(img, [{ kps: FACE_TEMPLATE.map(([x, y]) => [x + 40, y + 40]), weight: 1 }], { strength: 1 });
+    assert.equal(restored, 1);
+    assert.deepEqual(failed, ["dml"], "the bad provider must be disabled");
+    assert.equal(loads, 2);
+    assert.equal(up.deviceInfo().provider, "cpu");
+    assert.ok(!img.data.some((v, i) => Number.isNaN(v)), "no NaN reached the image");
+    await up.dispose();
+  });
+});

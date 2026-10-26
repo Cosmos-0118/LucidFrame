@@ -7,7 +7,7 @@ import { log } from "./log.js";
 import { ModelRegistry } from "./models.js";
 import { PROVIDER_LABELS, Runtime } from "./runtime.js";
 import { upscaleTiled } from "./tiling.js";
-import { CROP, DETECT_SIZE, detectFaces, restoreFaces } from "./restore/faces.js";
+import { CROP, DETECT_SIZE, detectFaces, isPlausibleRestoration, restoreFaces } from "./restore/faces.js";
 
 /** Largest image we will produce (matches sharp/libvips' own ceiling, 16383²). */
 export const MAX_OUTPUT_PIXELS = 268_000_000;
@@ -137,9 +137,25 @@ export class Upscaler {
   /** Redraw the given faces of an upscaled image in place; returns how many were restored. */
   async restoreFaces(img, faces, { strength, signal, onFace } = {}) {
     const { model, file } = await this.registry.resolveTool("face-restore");
-    const session = await this.runtime.loadStatic(model, file, [1, 3, CROP, CROP]);
-    this.lastDevice = session.provider;
-    return restoreFaces(img, faces, session, { strength, signal, onFace });
+    for (let attempt = 0; ; attempt++) {
+      const session = await this.runtime.loadStatic(model, file, [1, 3, CROP, CROP]);
+      this.lastDevice = session.provider;
+      // A GPU can return garbage without raising an error; check, and redo the faces on the CPU if it did.
+      const checked = {
+        infer: async (chw, w, h) => {
+          const out = await session.infer(chw, w, h);
+          if (session.provider !== "cpu" && !isPlausibleRestoration(chw, out)) throw new Error(`${session.provider} returned an implausible face`);
+          return out;
+        },
+      };
+      try {
+        return await restoreFaces(img, faces, checked, { strength, signal, onFace });
+      } catch (err) {
+        if (signal?.aborted || err?.name === "AbortError" || session.provider === "cpu" || attempt >= 1) throw err;
+        log.warn(`face restoration failed on ${session.provider}: ${err.message}`);
+        this.runtime.markFailed(session.provider);
+      }
+    }
   }
 
   async #pass(img, model, file, { signal, onTile, onRetry }) {

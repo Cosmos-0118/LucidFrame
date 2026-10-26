@@ -356,6 +356,23 @@ export async function detectFaces(session, image, { signal } = {}) {
 // ───────────────────────────── restoration ─────────────────────────────
 
 /**
+ * Is `output` believable as a restoration of `input` (both planar [0,1])? A broken GPU driver can return NaNs or
+ * noise without raising an error; a real restoration stays close to its input in overall colour.
+ */
+export function isPlausibleRestoration(input, output) {
+  if (output.length < input.length) return false;
+  let diff = 0;
+  let n = 0;
+  for (let i = 0; i < input.length; i += 61) {
+    const v = output[i];
+    if (!Number.isFinite(v) || v < -1 || v > 2) return false;
+    diff += Math.abs(v - input[i]);
+    n++;
+  }
+  return diff / n < 0.35;
+}
+
+/**
  * Restore the faces of an already-upscaled image, in place.
  *
  * @param {{data:Buffer,width:number,height:number}} image upscaled RGB (modified)
