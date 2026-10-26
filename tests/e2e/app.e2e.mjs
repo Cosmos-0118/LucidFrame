@@ -9,6 +9,7 @@ import { createRequire } from "node:module";
 import { after, before, describe, it } from "node:test";
 import { _electron as electron } from "playwright-core";
 import sharp from "sharp";
+import { sandboxFlags } from "../../src/main/sandbox.js";
 import { patternRGB, rm, tmpDir } from "../helpers.js";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
@@ -28,7 +29,7 @@ describe("desktop app", { timeout: 300_000 }, () => {
     const userData = path.join(dir, "userdata");
     app = await electron.launch({
       executablePath: electronBinary,
-      args: [...(process.platform === "linux" && process.getuid?.() === 0 ? ["--no-sandbox"] : []), `--user-data-dir=${userData}`, root, input],
+      args: [...sandboxFlags(electronBinary), `--user-data-dir=${userData}`, root, input],
       env: { ...process.env, LUCIDFRAME_DEVICE: "cpu", LUCIDFRAME_LOG_LEVEL: "error" },
     });
     page = await app.firstWindow();

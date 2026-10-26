@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { sandboxFlags } from "../src/main/sandbox.js";
 
 const root = path.resolve(import.meta.dirname, "..");
 const require = createRequire(import.meta.url);
@@ -38,8 +39,7 @@ if (typeof electron !== "string" || !fs.existsSync(electron)) {
   process.exit(1);
 }
 
-// Chromium refuses to start as root unless the sandbox is off (containers, CI). Normal users never hit this.
-const rootOnLinux = process.platform === "linux" && process.getuid?.() === 0;
-const child = spawn(electron, [...(rootOnLinux ? ["--no-sandbox"] : []), root, ...process.argv.slice(2)], { stdio: "inherit", env: { ...process.env, ELECTRON_ENABLE_LOGGING: process.env.ELECTRON_ENABLE_LOGGING ?? "" } });
+// Chromium refuses to start without its sandbox in containers (root) and on Ubuntu 23.10+; add the flag only then.
+const child = spawn(electron, [...sandboxFlags(electron), root, ...process.argv.slice(2)], { stdio: "inherit", env: { ...process.env, ELECTRON_ENABLE_LOGGING: process.env.ELECTRON_ENABLE_LOGGING ?? "" } });
 child.on("exit", (code, signal) => process.exit(signal ? 1 : (code ?? 0)));
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => child.kill(sig));

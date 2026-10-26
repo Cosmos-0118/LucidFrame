@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { sandboxFlags } from "../src/main/sandbox.js";
 
 const root = path.resolve(import.meta.dirname, "..");
 const release = path.join(root, "release");
@@ -25,8 +26,7 @@ if (!bin) {
 const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "lucidframe-smoke-")), "result.json");
 const userData = path.join(path.dirname(out), "userdata");
 const cmd = process.platform === "linux" && process.env.DISPLAY === undefined ? "xvfb-run" : bin;
-const asRoot = process.platform === "linux" && process.getuid?.() === 0; // containers: Chromium refuses to sandbox as root
-const args = [...(asRoot ? ["--no-sandbox"] : []), `--user-data-dir=${userData}`, "--smoke-test"];
+const args = [...sandboxFlags(bin), `--user-data-dir=${userData}`, "--smoke-test"];
 const full = cmd === "xvfb-run" ? ["-a", bin, ...args] : args;
 
 console.log(`Smoke-testing ${bin}`);

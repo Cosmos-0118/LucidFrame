@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { createServer } from "vite";
+import { sandboxFlags } from "../src/main/sandbox.js";
 
 const root = path.resolve(import.meta.dirname, "..");
 const require = createRequire(import.meta.url);
@@ -13,8 +14,8 @@ await server.listen();
 const url = server.resolvedUrls.local[0].replace(/\/$/, "");
 console.log(`UI dev server at ${url}`);
 
-const rootOnLinux = process.platform === "linux" && process.getuid?.() === 0;
-const child = spawn(require("electron"), [...(rootOnLinux ? ["--no-sandbox"] : []), root, ...process.argv.slice(2)], { stdio: "inherit", env: { ...process.env, LUCIDFRAME_DEV_URL: `${url}/` } });
+const electron = require("electron");
+const child = spawn(electron, [...sandboxFlags(electron), root, ...process.argv.slice(2)], { stdio: "inherit", env: { ...process.env, LUCIDFRAME_DEV_URL: `${url}/` } });
 child.on("exit", async (code) => {
   await server.close();
   process.exit(code ?? 0);

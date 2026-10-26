@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { describe, it } from "node:test";
+import { sandboxFlags } from "../../src/main/sandbox.js";
 import { rm, tmpDir } from "../helpers.js";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
@@ -34,14 +35,18 @@ function descendants(rootPid) {
 describe("network exposure", { skip: process.platform !== "linux" }, () => {
   it("the running app owns no listening TCP/UDP sockets", async () => {
     const dir = tmpDir();
-    const child = spawn(electronBinary, [...(process.getuid?.() === 0 ? ["--no-sandbox"] : []), `--user-data-dir=${dir}`, root], {
+    const child = spawn(electronBinary, [...sandboxFlags(electronBinary), `--user-data-dir=${dir}`, root], {
       env: { ...process.env, LUCIDFRAME_DEVICE: "cpu", LUCIDFRAME_LOG_LEVEL: "error" },
-      stdio: "ignore",
+      stdio: ["ignore", "ignore", "pipe"],
     });
+    let stderr = "";
+    let exited = null;
+    child.stderr.on("data", (c) => (stderr = (stderr + c).slice(-4000)));
+    child.on("exit", (code, signal) => (exited = `exit code ${code}, signal ${signal}`));
     try {
       await new Promise((r) => setTimeout(r, 10_000)); // window up, engine started, hardware detected
       const pids = descendants(child.pid);
-      assert.ok(pids.size >= 3, `expected the app's process tree, found ${pids.size} processes`);
+      assert.ok(pids.size >= 3, `expected the app's process tree, found ${pids.size} processes (${exited ?? "still running"})\n${stderr}`);
       const inodes = new Set();
       for (const pid of pids) {
         let fds = [];

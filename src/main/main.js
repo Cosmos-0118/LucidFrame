@@ -14,6 +14,7 @@ import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from "../engine/kinds.js";
 import { log } from "../engine/log.js";
 import { EngineClient } from "./engine-client.js";
 import { FileRegistry, MIME } from "./files.js";
+import { needsNoSandbox } from "./sandbox.js";
 import { createSettings } from "./settings.js";
 import { CSP, isSafeExternalUrl, parseRange, safeJoin, validateStart } from "./validate.js";
 
@@ -25,30 +26,8 @@ const PROJECT_URL = "https://github.com/Cosmos-0118/LucidFrame";
 
 protocol.registerSchemesAsPrivileged([{ scheme: "lucid", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }]);
 
-/** Linux: only fall back to --no-sandbox when the OS genuinely won't let Chromium sandbox itself. */
-function configureLinuxSandbox() {
-  if (process.platform !== "linux") return;
-  let blocked = process.getuid?.() === 0;
-  try {
-    // Ubuntu 23.10+ blocks unprivileged user namespaces; the setuid helper is the only other way in.
-    const restricted = fs.readFileSync("/proc/sys/kernel/apparmor_restrict_unprivileged_userns", "utf8").trim() === "1";
-    if (restricted) {
-      const helper = path.join(path.dirname(process.execPath), "chrome-sandbox");
-      let setuid = false;
-      try {
-        const st = fs.statSync(helper);
-        setuid = st.uid === 0 && (st.mode & 0o4000) !== 0;
-      } catch {
-        /* no helper */
-      }
-      if (!setuid) blocked = true;
-    }
-  } catch {
-    /* file absent: not restricted */
-  }
-  if (blocked) app.commandLine.appendSwitch("no-sandbox");
-}
-configureLinuxSandbox();
+// Launchers (npm start, tests) pass --no-sandbox themselves when needed; this covers apps started directly.
+if (needsNoSandbox(process.execPath)) app.commandLine.appendSwitch("no-sandbox");
 
 if (!smokeTest && !app.requestSingleInstanceLock()) {
   app.quit();
