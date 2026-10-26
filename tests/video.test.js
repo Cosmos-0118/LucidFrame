@@ -62,6 +62,16 @@ describe("video upscaling (real models, real ffmpeg)", () => {
     assert.deepEqual(fs.readdirSync(dir).filter((f) => f.includes("partial")), []);
   });
 
+  it("trims audio that outlasts the video instead of leaving a silent tail", async () => {
+    const input = path.join(dir, "long-audio.mkv");
+    const { code } = await runFfmpeg(["-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x48:rate=15:duration=1", "-f", "lavfi", "-i", "sine=duration=3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", input]);
+    assert.equal(code, 0);
+    const r = await upscale(input);
+    const out = await probe(r.output);
+    assert.ok(out.duration < 1.3, `output lasts ${out.duration}s, expected about 1s`);
+    assert.equal(await countFrames(r.output), 15);
+  });
+
   it("preserves NTSC frame rates exactly", async () => {
     const input = await makeClip(path.join(dir, "ntsc.mp4"), { rate: "30000/1001", seconds: 1, audio: false });
     const r = await upscale(input);

@@ -95,17 +95,28 @@ export async function upscaleVideoFile(upscaler, job) {
   const tmp = partialPath(output);
 
   const copyAudio = info.audio && COPYABLE_AUDIO.has(info.audio.codec);
+  // Two steps on purpose. The encoder reads its frames from a pipe, so it must not also be given the audio and
+  // `-shortest`: ffmpeg ≤ 6.0 (the macOS build) ends the whole output as soon as the always-ready audio stream hits
+  // EOF, which cut videos down to a single frame. Encode video alone, then mux with the original audio from files.
+  const videoOnly = tmp.replace(/(\.[^.]+)$/, ".video$1");
   const encArgs = [
     "-y", "-v", "error", "-nostdin",
     "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", `${outW}x${outH}`, "-framerate", String(outFps), "-i", "pipe:0",
-    "-i", input,
-    "-map", "0:v:0", "-map", "1:a?",
-    "-map_metadata", "1",
+    "-map", "0:v:0",
     "-vf", `scale='trunc(iw/2)*2':'trunc(ih/2)*2':out_color_matrix=${matrix}:out_range=tv,format=yuv420p`,
     "-c:v", "libx264", "-preset", "fast", "-crf", "17",
     ...(COLOR_TAGS[matrix] ?? []), "-color_range", "tv",
+    videoOnly,
+  ];
+  const muxArgs = [
+    "-y", "-v", "error", "-nostdin",
+    "-i", videoOnly, "-i", input,
+    "-map", "0:v:0", "-map", "1:a?",
+    "-map_metadata", "1",
+    "-c:v", "copy",
     ...(info.audio ? (copyAudio ? ["-c:a", "copy"] : ["-c:a", "aac", "-b:a", "192k"]) : []),
-    "-shortest", "-movflags", "+faststart",
+    ...(info.audio ? ["-shortest"] : []),
+    "-movflags", "+faststart",
     tmp,
   ];
   const decArgs = ["-v", "error", "-nostdin", "-i", input, "-map", "0:v:0", "-an", "-sn", "-dn", "-vf", filters, ...(smooth && info.duration ? ["-t", String(info.duration)] : []), "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"];
@@ -185,6 +196,10 @@ export async function upscaleVideoFile(upscaler, job) {
     if (frames === 0) throw new UpscaleError(`no frames could be decoded: ${tail(decErr, 3) || `ffmpeg exited with ${decCode}`}`, "bad_video");
     if (decCode !== 0) log.warn(`decoder exited with ${decCode}: ${tail(decErr, 3)}`);
     if (encCode !== 0) throw new UpscaleError(`video encoder failed: ${tail(encErr, 3) || `ffmpeg exited with ${encCode}`}`, "encode_failed");
+    report({ phase: "finalize", fraction: 0.99, frame: frames, frames: estFrames, message: info.audio ? "Adding audio…" : "Finishing…" });
+    const mux = await runFfmpeg(muxArgs, { signal });
+    signal?.throwIfAborted();
+    if (mux.code !== 0) throw new UpscaleError(`could not write the output file: ${tail(mux.stderr, 3) || `ffmpeg exited with ${mux.code}`}`, "encode_failed");
     fs.renameSync(tmp, output);
   } catch (err) {
     kill();
@@ -193,6 +208,7 @@ export async function upscaleVideoFile(upscaler, job) {
     if (signal?.aborted) throw signal.reason ?? err;
     throw err;
   } finally {
+    fs.rmSync(videoOnly, { force: true });
     signal?.removeEventListener("abort", kill);
   }
 
