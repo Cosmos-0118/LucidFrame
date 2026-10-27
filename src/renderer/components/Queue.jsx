@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { fmtBytes, fmtDims } from "../utils";
 import { IconAlert, IconCheck, IconFolder, IconImage, IconUpload, IconVideo, IconX } from "./icons";
 
@@ -31,6 +32,11 @@ function Status({ item }) {
   }
 }
 
+function ImageThumb({ url }) {
+  const [failed, setFailed] = useState(false);
+  return failed || !url ? <IconImage /> : <img src={url} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setFailed(true)} />;
+}
+
 export default function Queue({ state, running, onSelect, onRemove, onClear, onAddFiles, onAddFolder }) {
   const { items, selectedId } = state;
   return (
@@ -55,7 +61,7 @@ export default function Queue({ state, running, onSelect, onRemove, onClear, onA
         {items.map((item) => (
           <li key={item.id} className={`row ${item.id === selectedId ? "selected" : ""}`}>
             <button type="button" className="row-main" onClick={() => onSelect(item.id)} aria-current={item.id === selectedId}>
-              <span className="row-icon">{item.kind === "video" ? <IconVideo /> : <IconImage />}</span>
+              <span className="row-icon">{item.kind === "video" ? <IconVideo /> : <ImageThumb url={item.sourceUrl} />}</span>
               <span className="row-text">
                 <span className="row-name" title={item.path}>{item.name}</span>
                 <span className="row-meta">

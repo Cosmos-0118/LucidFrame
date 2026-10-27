@@ -37,6 +37,7 @@ The full license texts are in the `licenses/` folder (shipped with the app): [CC
 | [FFmpeg](https://ffmpeg.org) via [`ffmpeg-static`](https://github.com/eugeneware/ffmpeg-static) | GPL-3.0-or-later (the bundled build enables GPL components such as x264) | Decoding and encoding video, as a **separate executable** started by the app. Source code: https://ffmpeg.org/download.html#get-sources — the exact build comes from the `ffmpeg-static` project's release for your platform. |
 | [Electron](https://www.electronjs.org) (includes Chromium) | MIT and Chromium's licenses (see `LICENSES.chromium.html` inside the app) | Desktop shell |
 | [React](https://react.dev) and React DOM | MIT | User interface |
+| [Geist](https://vercel.com/font) and Geist Mono (via `@fontsource-variable`) | SIL Open Font License 1.1 | Typeface, bundled in the app (nothing is loaded from the web) |
 
 DirectML (Windows) is a Microsoft component distributed inside the `onnxruntime-node` package; see that package for its license terms.
 

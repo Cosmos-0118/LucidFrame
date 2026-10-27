@@ -75,18 +75,19 @@ export const IconChip = make(
   </>,
 );
 
+export const IconInfo = make(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5.5M12 7.5v.01" />
+  </>,
+);
+
 export function Logo({ size = 28 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-      <defs>
-        <linearGradient id="lf-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#8b6cff" />
-          <stop offset="1" stopColor="#22d3ee" />
-        </linearGradient>
-      </defs>
-      <rect x="1.5" y="1.5" width="29" height="29" rx="8" fill="url(#lf-grad)" />
-      <path d="M10 9v14h12" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M15 14.5v4.5h4.5" fill="none" stroke="#fff" strokeOpacity=".6" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="1" y="1" width="30" height="30" rx="8" style={{ fill: "var(--text)" }} />
+      <path d="M10.5 9v14h11" fill="none" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: "var(--bg)" }} />
+      <path d="M15.5 14.5V19h4.5" fill="none" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" strokeOpacity=".5" style={{ stroke: "var(--bg)" }} />
     </svg>
   );
 }

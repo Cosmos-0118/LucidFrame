@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import EmptyState from "./components/EmptyState";
+import Header from "./components/Header";
 import Queue from "./components/Queue";
 import Sidebar from "./components/Sidebar";
 import Viewer from "./components/Viewer";
@@ -236,7 +237,7 @@ export default function App() {
   if (boot.state !== "ready") {
     return (
       <div className="splash" role={boot.state === "error" ? "alert" : "status"}>
-        <Logo size={56} />
+        <Logo size={40} />
         {boot.state === "loading" ? (
           <>
             <h1>LucidFrame</h1>
@@ -263,6 +264,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <Header device={device} selected={selected} />
       <Sidebar
         info={info}
         device={device}
@@ -310,8 +312,8 @@ export default function App() {
       {dragging && (
         <div className="drop-overlay" aria-hidden="true">
           <div>
-            <IconUpload size={36} />
-            <p>Drop to add</p>
+            <IconUpload size={28} />
+            <p>Drop to add to the queue</p>
           </div>
         </div>
       )}
