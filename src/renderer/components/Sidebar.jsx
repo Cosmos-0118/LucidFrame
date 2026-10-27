@@ -1,5 +1,39 @@
+import { useEffect, useRef, useState } from "react";
 import { fits, fmtDims, megapixels } from "../utils";
-import { IconAlert, IconChip, IconFolder, Logo } from "./icons";
+import { IconAlert, IconFolder, IconInfo } from "./icons";
+
+const MODEL_GROUPS = [
+  ["quality", "Best quality"],
+  ["fast", "Quick, for video"],
+];
+
+/** An "i" button that opens a short explanation under the heading it sits next to. */
+function InfoTip({ label, children }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (e) => (e.type === "keydown" ? e.key === "Escape" && setOpen(false) : !ref.current?.contains(e.target) && setOpen(false));
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+  return (
+    <span className="info" ref={ref}>
+      <button type="button" className="info-btn" aria-label={label} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <IconInfo size={14} />
+      </button>
+      {open && (
+        <div className="popover" role="note">
+          {children}
+        </div>
+      )}
+    </span>
+  );
+}
 
 const SCALE_LABELS = { 2: "2×", 3: "3×", 4: "4×" };
 
@@ -16,17 +50,6 @@ function Choice({ name, label, value, choices, onChange, disabled }) {
   );
 }
 
-function Device({ device }) {
-  const busy = device.state === "detecting";
-  const cls = device.state === "error" ? "error" : device.provider && device.provider !== "cpu" ? "gpu" : "cpu";
-  return (
-    <div className={`device ${cls}`} title="The hardware LucidFrame uses for upscaling">
-      {busy ? <span className="spinner" aria-hidden="true" /> : <IconChip size={15} />}
-      <span>{device.label}</span>
-    </div>
-  );
-}
-
 export default function Sidebar({ info, device, options, setOptions, selected, hasItems, hasImage, hasVideo, settings, onChooseFolder, onResetFolder, queuedCount, running, onStart, onCancel }) {
   const model = info.models.find((m) => m.id === options.model) ?? info.models[0];
   const dims = selected?.dims;
@@ -39,28 +62,29 @@ export default function Sidebar({ info, device, options, setOptions, selected, h
   return (
     <aside className="sidebar">
       <div className="sidebar-scroll">
-      <header className="brand">
-        <Logo />
-        <div>
-          <h1>LucidFrame</h1>
-          <p>Private AI upscaling</p>
-        </div>
-      </header>
-
       <section className="group" aria-labelledby="g-model">
         <h2 id="g-model">Model</h2>
         <div className="models" role="radiogroup" aria-label="Model">
-          {info.models.map((m) => (
-            <label key={m.id} className={`model ${options.model === m.id ? "checked" : ""}`}>
-              <input type="radio" name="model" value={m.id} checked={options.model === m.id} onChange={() => setOptions({ model: m.id, scale: m.scale })} disabled={!m.available || running} />
-              <span className="model-name">
-                {m.name}
-                <span className={`badge ${m.kind}`}>{m.kind === "quality" ? "Best quality" : "Fast"}</span>
-              </span>
-              <span className="model-tag">{m.tagline}</span>
-            </label>
-          ))}
+          {MODEL_GROUPS.map(([kind, caption]) => {
+            const group = info.models.filter((m) => m.kind === kind);
+            return (
+              group.length > 0 && (
+                <div className="model-group" key={kind}>
+                  <span className="model-caption">{caption}</span>
+                  <div className="model-grid">
+                    {group.map((m) => (
+                      <label key={m.id} className={`model ${options.model === m.id ? "checked" : ""}`} title={m.tagline}>
+                        <input type="radio" name="model" value={m.id} checked={options.model === m.id} onChange={() => setOptions({ model: m.id, scale: m.scale })} disabled={!m.available || running} />
+                        <span className="model-name">{m.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )
+            );
+          })}
         </div>
+        <p className="hint">{model.tagline}</p>
       </section>
 
       <section className="group" aria-labelledby="g-scale">
@@ -87,18 +111,26 @@ export default function Sidebar({ info, device, options, setOptions, selected, h
 
       {hasImage && (
         <section className="group" aria-labelledby="g-restore">
-          <h2 id="g-restore">Restore</h2>
+          <h2 id="g-restore">
+            Restore
+            <InfoTip label="About Restore">
+              <p>
+                <strong>Clean up blur and compression</strong> repairs blocky JPEGs and out-of-focus photos before upscaling, so the upscaler doesn’t just enlarge the damage. Auto only acts when it sees damage.
+              </p>
+              <p>
+                <strong>Restore faces</strong> rebuilds small, blurry or damaged faces. Auto leaves faces that are already detailed alone. It invents detail, so a likeness can change slightly — switch it off if fidelity matters most.
+              </p>
+            </InfoTip>
+          </h2>
           {restoreReady ? (
             <>
               <div className="option">
                 <span className="option-label">Clean up blur and compression</span>
                 <Choice name="cleanup" label="Clean up blur and compression" value={options.cleanup} onChange={(v) => setOptions({ cleanup: v })} disabled={running} choices={[["auto", "Auto"], ["on", "On"], ["off", "Off"]]} />
-                <p className="hint">Blocky JPEGs and out-of-focus photos are repaired first, so the upscaler doesn’t just enlarge the damage. Auto only acts when it sees it.</p>
               </div>
               <div className="option">
                 <span className="option-label">Restore faces</span>
                 <Choice name="faces" label="Restore faces" value={options.faces} onChange={(v) => setOptions({ faces: v })} disabled={running} choices={[["auto", "Auto"], ["always", "Always"], ["off", "Off"]]} />
-                <p className="hint">Rebuilds small, blurry or damaged faces. Auto leaves faces alone that are already detailed. It invents detail, so a likeness can change slightly.</p>
               </div>
             </>
           ) : (
@@ -152,7 +184,6 @@ export default function Sidebar({ info, device, options, setOptions, selected, h
         </div>
         <p className="hint">Originals are never changed or overwritten.</p>
       </section>
-
       </div>
       <div className="cta">
         {(slowCpu || videoQuality) && (
@@ -174,7 +205,6 @@ export default function Sidebar({ info, device, options, setOptions, selected, h
             {queuedCount > 0 ? `Upscale ${queuedCount} ${queuedCount === 1 ? "file" : "files"}` : hasItems ? "All done" : "Add files to begin"}
           </button>
         )}
-        <Device device={device} />
       </div>
     </aside>
   );

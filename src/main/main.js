@@ -299,7 +299,7 @@ function createWindow() {
     minHeight: 640,
     show: false,
     title: "LucidFrame",
-    backgroundColor: "#0e1014",
+    backgroundColor: "#000000",
     autoHideMenuBar: true,
     icon: path.join(root, "build", "icon.png"),
     webPreferences: {

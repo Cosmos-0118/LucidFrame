@@ -167,7 +167,12 @@ describe("restore options in the app", { timeout: 300_000 }, () => {
     await page.waitForSelector(".row .row-name");
     assert.equal(await checked("Clean up blur and compression"), "Auto");
     assert.equal(await checked("Restore faces"), "Auto");
-    assert.match(await page.textContent(".sidebar"), /It invents detail, so a likeness can change slightly/);
+    // The explanation lives behind the "i" next to the heading rather than in a paragraph under each option.
+    assert.doesNotMatch(await page.textContent(".sidebar"), /It invents detail/);
+    await page.getByRole("button", { name: "About Restore" }).click();
+    assert.match(await page.locator(".popover").textContent(), /It invents detail, so a likeness can change slightly/);
+    await page.keyboard.press("Escape");
+    assert.equal(await page.locator(".popover").count(), 0);
   });
 
   it("cleans up the compression and restores the face, and says so", async () => {

@@ -1,6 +1,7 @@
 name: Release
 
-# Push a tag like v2.0.0 and installers for Windows, macOS and Linux appear on the GitHub release.
+# Push a tag like v2.0.0 and the Windows installer appears on the GitHub release.
+# macOS and Linux builds are switched off for now: add macos-latest / ubuntu-latest to the matrix to bring them back.
 on:
   push:
     tags: ["v*"]
@@ -22,12 +23,10 @@ jobs:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
-    # The macOS build is a bonus: if it fails it must not block the Windows and Linux installers.
-    continue-on-error: ${{ matrix.os == 'macos-latest' }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -59,7 +58,7 @@ jobs:
     name: Publish release
     needs: build
     if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
