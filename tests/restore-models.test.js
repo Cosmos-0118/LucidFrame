@@ -177,10 +177,12 @@ describe("face restoration falls back to the CPU when a GPU misbehaves", () => {
     const failed = [];
     const garbage = new Float32Array(3 * CROP * CROP).fill(NaN);
     let loads = 0;
-    // First load pretends to be a GPU that returns NaNs; the second is the real CPU session.
+    // The first load of the restorer pretends to be a GPU that returns NaNs; the second is the real CPU session.
+    // (Other components, such as the face parser, load normally.)
     up.runtime = {
       markFailed: (p) => failed.push(p),
       loadStatic: async (model, file, dims, opts) => {
+        if (model.id !== "face-restore") return real.loadStatic(model, file, dims, opts);
         loads++;
         if (loads > 1) return real.loadStatic(model, file, dims, opts);
         return { provider: "dml", infer: async () => garbage, release: async () => {} };

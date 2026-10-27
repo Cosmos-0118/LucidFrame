@@ -1,6 +1,6 @@
 {
   "version": 4,
-  "release": "models-3",
+  "release": "models-4",
   "models": [
     {
       "id": "photo",
@@ -114,17 +114,34 @@
       "id": "face-restore",
       "name": "Face restoration",
       "role": "face-restore",
-      "description": "GFPGAN v1.4 (StyleGAN2 facial prior) rebuilds eyes, skin and hair on aligned 512 px face crops. Weights are stored in 8 bits to keep the download small.",
+      "description": "RestoreFormer++ rebuilds eyes, skin and hair on aligned 512 px face crops from a codebook of high-quality facial detail. It keeps the person's likeness better than the GFPGAN it replaced. Weights are stored in 8 bits to keep the download small.",
       "scale": 1,
       "file": "face-restore.onnx",
-      "size": 85596126,
-      "sha256": "68e6da38addcee30b50893428acf417f04a451a3e1bcc7e83a30cf133d77372f",
+      "size": 74637832,
+      "sha256": "4c245cb9d4f95f60680be33cbf2fcadae70e116fc7de7d6b4e1989a0a456e56c",
       "license": "Apache-2.0",
-      "author": "Tencent ARC Lab (Xintao Wang et al.)",
+      "author": "Zhouxia Wang et al. (RestoreFormer++)",
       "source": {
-        "url": "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth",
-        "revision": "v1.3.0",
-        "sha256": "e2cd4703ab14f4d01fd1383a8a8b266f9a5833dacee8e6a79d3bf21a1b6be5ad"
+        "url": "https://github.com/facefusion/facefusion-assets/releases/download/models-3.0.0/restoreformer_plus_plus.onnx",
+        "revision": "models-3.0.0",
+        "sha256": "164818b70d1745da4108a45c9263b05452236d14ac0ffab2202af0ac4a438195"
+      }
+    },
+    {
+      "id": "face-parse",
+      "name": "Face parsing",
+      "role": "face-parse",
+      "description": "BiSeNet (ResNet-18) outlines the skin, brows, eyes, nose, lips and ears of a face so a restored face is blended in along its true outline, not through a fixed oval.",
+      "scale": 1,
+      "file": "face-parse.onnx",
+      "size": 13227382,
+      "sha256": "55c922efb2d571d588ca8813d44f08b37ecc68e6da41eb005d9a72ec71fcccf7",
+      "license": "MIT",
+      "author": "Yakhyokhuja Valikhujaev (face-parsing, BiSeNet)",
+      "source": {
+        "url": "https://github.com/facefusion/facefusion-assets/releases/download/models-3.1.0/bisenet_resnet_18.onnx",
+        "revision": "models-3.1.0",
+        "sha256": "2218b6183c26ca5c83303232d682a536c670c13ea9695f716c777d1f244eefe9"
       }
     }
   ]

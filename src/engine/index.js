@@ -8,8 +8,9 @@ import { ffmpegPath, runFfmpeg } from "./ffmpeg.js";
 import { OUTPUT_FORMATS, upscaleImageFile } from "./image.js";
 import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, detectKind } from "./kinds.js";
 import { log } from "./log.js";
-import { CROP, FACE_TEMPLATE } from "./restore/faces.js";
+import { FACE_TEMPLATE } from "./restore/faces.js";
 import { CLEANUP_MODES, FACE_MODES } from "./restore/pipeline.js";
+import { syntheticFace } from "./restore/selftest.js";
 import { SCALES, UpscaleError, Upscaler } from "./upscaler.js";
 import { upscaleVideoFile } from "./video.js";
 
@@ -107,11 +108,11 @@ export class Engine {
       return `${model} ran on ${device.label}`;
     });
     await check("restore pipeline", async () => {
-      // One real run of each stage: JPEG cleanup, face detection, and a face restoration on a synthetic face.
+      // One real run of each stage: JPEG cleanup, face detection, and a face restoration on a drawn face.
       const gray = (n) => ({ data: Buffer.alloc(n * n * 3, 128), width: n, height: n });
       await this.#upscaler.cleanRGB(gray(48));
       await this.#upscaler.findFaces(gray(160));
-      const canvas = gray(CROP);
+      const canvas = await syntheticFace();
       const restored = await this.#upscaler.restoreFaces(canvas, [{ kps: FACE_TEMPLATE, weight: 1 }], { strength: 0.1 });
       if (restored !== 1) throw new Error("face restoration did not run");
       return `cleanup, face detection and face restoration ran on ${this.#upscaler.deviceInfo().label}`;

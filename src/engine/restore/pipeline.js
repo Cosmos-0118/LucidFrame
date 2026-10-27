@@ -151,12 +151,18 @@ export async function runImagePipeline(upscaler, rgb, opts) {
         const width = f.box[2] - f.box[0];
         const weight = faceWeight(width, faces);
         if (weight < MIN_WEIGHT || width * k < MIN_FACE_OUTPUT_PX) continue;
-        todo.push({ score: f.score, weight, kps: f.kps.map(([x, y]) => [x * k + shift, y * (result.height / work.height) + (result.height / work.height - 1) / 2]) });
+        todo.push({
+          score: f.score,
+          weight,
+          kps: f.kps.map(([x, y]) => [x * k + shift, y * (result.height / work.height) + (result.height / work.height - 1) / 2]),
+          srcKps: f.kps, // the restorer reads the real pixels, not the upscaler's invention (see faces.js)
+        });
       }
       if (!todo.length) return;
       progress(body, todo.length === 1 ? "Restoring face…" : `Restoring ${todo.length} faces…`);
       restore.faces.restored = await upscaler.restoreFaces(result, todo, {
         strength: opts.faceStrength,
+        source: work,
         signal,
         onFace: (done, count) => progress(body + faceSpan * (done / count), count === 1 ? "Restoring face…" : `Restoring face ${done} of ${count}…`),
       });

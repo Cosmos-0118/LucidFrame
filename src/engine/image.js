@@ -133,7 +133,7 @@ export function partialPath(finalPath) {
  * @param {number} [job.quality]
  * @param {"auto"|"on"|"off"} [job.cleanup] remove JPEG blocking before upscaling ("auto": only when the image needs it)
  * @param {"auto"|"always"|"off"} [job.faces] redraw faces with a face-restoration model ("auto": small or degraded faces only)
- * @param {number} [job.faceStrength] 0..1 how much of the restored face replaces the upscaled one (default 0.85)
+ * @param {number} [job.faceStrength] 0..1 how much of the restored face replaces the upscaled one (default 0.7)
  * @param {string} [job.outputDir]
  * @param {string} [job.previewDir] where to put a downsized preview for very large results
  * @param {number} [job.previewAbovePixels] result size above which a preview is made (default 16 MP)

@@ -134,9 +134,33 @@ export class Upscaler {
     return detectFaces(session, img, { signal });
   }
 
-  /** Redraw the given faces of an upscaled image in place; returns how many were restored. */
-  async restoreFaces(img, faces, { strength, signal, onFace } = {}) {
+  /**
+   * The face-parsing model as `{mask(chw)}`: a 0/1 map (512×512) of the skin, brows, eyes, ears, nose and lips in an
+   * aligned crop. Optional: without it (file missing, will not load) faces are blended through an ellipse instead.
+   */
+  async #faceParser() {
+    try {
+      const { model, file } = await this.registry.resolveTool("face-parse");
+      const session = await this.runtime.loadStatic(model, file, [1, 3, CROP, CROP], { cpuOnly: true });
+      return {
+        mask: async (chw) => {
+          const out = await session.run({ [session.inputName]: { data: chw, dims: [1, 3, CROP, CROP] } });
+          return out[session.outputName].data;
+        },
+      };
+    } catch (err) {
+      log.warn(`face parsing unavailable, blending faces through an ellipse: ${String(err.message).split("\n")[0]}`);
+      return null;
+    }
+  }
+
+  /**
+   * Redraw the given faces of an upscaled image in place; returns how many were restored. With `source` (the picture
+   * before upscaling) and faces that carry `srcKps`, the restorer works from the original pixels (see faces.js).
+   */
+  async restoreFaces(img, faces, { strength, source, signal, onFace } = {}) {
     const { model, file } = await this.registry.resolveTool("face-restore");
+    const parser = await this.#faceParser();
     for (let attempt = 0; ; attempt++) {
       const session = await this.runtime.loadStatic(model, file, [1, 3, CROP, CROP]);
       this.lastDevice = session.provider;
@@ -149,7 +173,7 @@ export class Upscaler {
         },
       };
       try {
-        return await restoreFaces(img, faces, checked, { strength, signal, onFace });
+        return await restoreFaces(img, faces, checked, { strength, source, parser, signal, onFace });
       } catch (err) {
         if (signal?.aborted || err?.name === "AbortError" || session.provider === "cpu" || attempt >= 1) throw err;
         log.warn(`face restoration failed on ${session.provider}: ${err.message}`);

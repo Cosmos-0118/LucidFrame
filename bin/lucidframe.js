@@ -28,7 +28,7 @@ Options
       --cleanup <mode>  ${CLEANUP_MODES.join(" | ")}   images: clean up compression blocks and blur first (default: auto)
       --faces <mode>    ${FACE_MODES.join(" | ")}   images: redraw faces with a face-restoration model (default: auto)
                         auto = small or degraded faces only; always = every face, whatever its size
-      --face-strength <0-1>  how much of the restored face replaces the upscaled one      (default: 0.85)
+      --face-strength <0-1>  how much of the restored face replaces the upscaled one      (default: 0.7)
       --smooth          video: motion-interpolate to double the frame rate
       --device <name>   auto | cpu | dml | cuda | coreml                 (default: auto)
       --json            machine-readable output

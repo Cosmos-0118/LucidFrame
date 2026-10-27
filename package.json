@@ -1,6 +1,6 @@
 {
   "name": "lucidframe",
-  "version": "2.0.0",
+  "version": "2.2.0",
   "description": "Offline AI image and video upscaler. One install, no setup.",
   "private": true,
   "license": "MIT",

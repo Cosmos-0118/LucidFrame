@@ -1,6 +1,6 @@
 name: Release
 
-# Push a tag like v2.0.0 and the Windows installer appears on the GitHub release.
+# Push a tag like v2.3.0 and the Windows installer (named for that version) appears on the GitHub release.
 # macOS and Linux builds are switched off for now: add macos-latest / ubuntu-latest to the matrix to bring them back.
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Attach the installers to the existing GitHub release with this tag (e.g. v2.0.0). Leave empty to only build."
+        description: "Attach the installers to the existing GitHub release with this tag (e.g. v2.3.0). Leave empty to only build."
         required: false
         default: ""
 
@@ -34,6 +34,22 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The installer name and the app's own version come from package.json, so the tag has to be written into it
+      # first. Without this every release was built as whatever version package.json happened to hold.
+      - name: Stamp the version from the tag
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
+        id: version
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$TAG' is not a version tag like v2.3.0"
+            exit 1
+          fi
+          npm version "$version" --no-git-tag-version --allow-same-version
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       # Models are release assets, not git files: cache them by manifest hash so most runs download nothing.
       - uses: actions/cache@v4
         with:
@@ -44,6 +60,14 @@ jobs:
       # Builds are unsigned. (To sign later, add CSC_LINK / CSC_KEY_PASSWORD as env here. Do not pass them while the
       # secrets are unset: an empty CSC_LINK is treated as a file path and breaks the build.)
       - run: npm run dist -- --publish never
+      - name: Check the installer carries the tag's version
+        if: steps.version.outputs.version != ''
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          ls release/*.exe
+          ls release/*"-$VERSION-"*.exe > /dev/null || { echo "::error::no installer named for version $VERSION"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: installers-${{ matrix.os }}

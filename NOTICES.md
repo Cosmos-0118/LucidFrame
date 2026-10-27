@@ -21,11 +21,12 @@ Network architectures: RealPLKSR / PLKSR ([Lee et al., "Partial Large Kernel CNN
 | --- | --- | --- | --- | --- |
 | `dejpeg` | 1xDeJPG_realplksr_otf | Philip Hofmann (Phhofm) | CC BY 4.0 | https://huggingface.co/Phips/1xDeJPG_realplksr_otf |
 | `face-detect` | YuNet (`face_detection_yunet_2023mar`) | Shiqi Yu et al. (libfacedetection, via OpenCV Zoo) | MIT | https://huggingface.co/opencv/face_detection_yunet |
-| `face-restore` | GFPGAN v1.4 | Tencent ARC Lab (Xintao Wang, Yu Li, Honglun Zhang, Ying Shan) | Apache-2.0 | https://github.com/TencentARC/GFPGAN |
+| `face-restore` | RestoreFormer++ | Zhouxia Wang, Jiawei Zhang, Tianshui Chen, Wenping Wang, Ping Luo | Apache-2.0 | https://github.com/wzhouxiff/RestoreFormerPlusPlus |
+| `face-parse` | BiSeNet face parsing (ResNet-18, `face-parsing`) | Yakhyokhuja Valikhujaev (BiSeNet: Yu et al.) | MIT | https://github.com/yakhyo/face-parsing |
 
-Changes made: `dejpeg` and `face-restore` were converted from PyTorch to ONNX with `tools/convert_models.py` (verified against PyTorch to within 1e-5). For `face-restore` the StyleGAN2 noise inputs were fixed to a seed so results are reproducible, and the weights are *stored* in 8 bits (they are expanded to float32 when the model loads; output differs from the full-precision model by less than 1/200 of a grey level in our checks). `face-detect` is used unmodified.
+Changes made: `dejpeg` was converted from PyTorch to ONNX with `tools/convert_models.py` (verified against PyTorch to within 1e-5). `face-restore` and `face-parse` start from ONNX exports published in the [FaceFusion model assets](https://github.com/facefusion/facefusion-assets) (pinned by SHA-256 in `models/manifest.json`) and are rebuilt with `tools/convert_faces.py`: the input and output scaling is folded into the graph, `face-restore` keeps its single output and its weights are *stored* in 8 bits (they are expanded to float32 when the model loads; our check measures 42 dB PSNR against the full-precision model on a real face), and `face-parse` returns the finished face mask (the arg-max over its 19 classes is inside the graph). `face-detect` is used unmodified.
 
-The full license texts are in the `licenses/` folder (shipped with the app): [CC BY 4.0](licenses/CC-BY-4.0.txt), [MIT (YuNet)](licenses/YuNet-MIT.txt), [Apache-2.0 (GFPGAN)](licenses/GFPGAN-Apache-2.0.txt). GFPGAN was trained on FFHQ and uses a StyleGAN2 prior; see its repository for details and the paper: Wang et al., "Towards Real-World Blind Face Restoration with Generative Facial Prior", CVPR 2021.
+The full license texts are in the `licenses/` folder (shipped with the app): [CC BY 4.0](licenses/CC-BY-4.0.txt), [MIT (YuNet)](licenses/YuNet-MIT.txt), [Apache-2.0 (RestoreFormer++)](licenses/RestoreFormerPlusPlus-Apache-2.0.txt), [MIT (face-parsing)](licenses/BiSeNet-face-parsing-MIT.txt). RestoreFormer++ was trained on FFHQ; see the paper: Wang et al., "RestoreFormer++: Towards Real-World Blind Face Restoration from Undegraded Key-Value Pairs", arXiv:2308.07228, 2023. The face-parsing weights were trained on the CelebAMask-HQ dataset, which its authors release for non-commercial research; the weights themselves are published under the MIT license by the repository above.
 
 ## Runtime components
 
@@ -45,4 +46,4 @@ FFmpeg runs as its own program and is not linked into LucidFrame, so LucidFrame'
 
 ## Removed in v2
 
-LucidFrame v1 used Real-ESRGAN weights, PyTorch, BasicSR, FastAPI and Google Fonts. None of these are included or contacted by v2. (GFPGAN is back, as ONNX, in the Restore pipeline above.)
+LucidFrame v1 used Real-ESRGAN weights, PyTorch, BasicSR, FastAPI and Google Fonts. None of these are included or contacted by v2. (Face restoration is back, as ONNX, in the Restore pipeline above.)

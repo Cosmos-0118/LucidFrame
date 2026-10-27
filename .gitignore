@@ -23,3 +23,6 @@ __pycache__/
 # Model files are published as release assets and fetched by `npm run models` (see src/engine/fetch-models.js)
 models/*.onnx
 models/*.download
+
+# face-model benchmark scratch (weights, datasets, outputs); scripts live in tools/bench
+.bench/

@@ -54,33 +54,37 @@ An upscaler can only enlarge what is in the picture. If the picture is a low-qua
 
 1. **Clean up** (RealPLKSR 1×, trained on JPEG damage and blur). In **Auto** it runs only when it detects 8×8 JPEG blocking or a soft, out-of-focus image, and blends in more gently for borderline cases. Clean, sharp photos are left alone (forcing it on those makes them *worse*).
 2. **Upscale** with the model you chose.
-3. **Restore faces** (YuNet finds faces and landmarks, GFPGAN 1.4 rebuilds each aligned face, and the result is colour-matched and blended in through a soft mask). In **Auto** it acts on small or degraded faces and fades out as a face gets large and already detailed; **Always** restores every face.
+3. **Restore faces** (YuNet finds faces and landmarks, RestoreFormer++ rebuilds each aligned face *from the original pixels*, and the result is colour-matched and blended in along the face's outline, found by a face-parsing model). In **Auto** it acts on small or degraded faces and fades out as a face gets large and already detailed; **Always** restores every face.
 
 Each stage can be set to Auto, On/Always or Off in the app (**Restore** section) or on the command line (`--cleanup`, `--faces`). The result bar says what was applied.
 
-![Input, photo model only, LucidFrame Restore and the original, for three kinds of damage](docs/restore-compare.jpg)
+![Faces from three photos: the input, the photo model alone, the previous Restore, the current Restore and the original](docs/restore-compare.jpg)
 
-Perceptual distance to the original, measured with LPIPS (lower is better) on the example above, 4× results compared at the original size:
+*Faces at the 75th, 50th and 25th percentile of improvement (top to bottom), not the best ones. The differences are modest, and a face of a dozen pixels (middle row) cannot be recovered by any model.*
 
-| Input | Method | Face | Whole image |
+Two things make the current Restore more faithful than the one before it. The face is rebuilt from the **original pixels**, not from the upscaler's output (which has already invented detail for a small face, and a restorer that starts from an invention drifts further from the real person). And it is blended in along the face's **true outline** (a face-parsing model), not through a fixed oval that dragged background and hair along with it.
+
+Measured through the app itself (`tools/bench/compare_scenes.py`): 12 public-domain NASA group photos, 80 faces, degraded three ways, 4× results compared with the original at its own size. LPIPS is perceptual distance (lower is better); *identity* is the cosine similarity of ArcFace face embeddings (higher is better, 1.0 is the same person).
+
+| Input | Method | LPIPS | Identity |
 | --- | --- | --- | --- |
-| 192 px wide, JPEG q20 | Bicubic | 0.409 | 0.408 |
-| | Photo model only | 0.119 | 0.210 |
-| | **Restore (auto)** | **0.100** | **0.188** |
-| 320 px wide, JPEG q15 | Bicubic | 0.238 | 0.265 |
-| | Photo model only | 0.109 | 0.171 |
-| | **Restore (auto)** | **0.079** | **0.163** |
-| Out of focus, JPEG q60 | Bicubic | 0.445 | 0.346 |
-| | Photo model only | 0.426 | 0.322 |
-| | **Restore (auto)** | **0.055** | **0.145** |
-| 384 px wide, JPEG q70 (mild) | Photo model only | 0.032 | 0.090 |
-| | **Restore (auto)** | 0.029 | 0.090 |
+| 640 px wide, JPEG q50 | Photo model only | 0.207 | 0.651 |
+| | Previous Restore | 0.197 | 0.632 |
+| | **Restore** | **0.175** | **0.678** |
+| 640 px wide, soft, JPEG q60 | Photo model only | 0.250 | 0.563 |
+| | Previous Restore | 0.226 | 0.547 |
+| | **Restore** | **0.200** | **0.576** |
+| 960 px wide, JPEG q70 | Photo model only | 0.148 | 0.845 |
+| | Previous Restore | 0.157 | 0.812 |
+| | **Restore** | **0.132** | **0.857** |
 
-Honest notes: these are synthetic degradations of one public-domain portrait (NASA's official photograph of Eileen Collins), plus checks on other photos in the test suite, not a benchmark. PSNR/SSIM do not improve in the hardest cases (they penalise any invented detail), which is why LPIPS is shown. The last row shows Auto doing nothing harmful when little is wrong. **Face restoration invents plausible detail**, so a person's likeness can change slightly: keep it on Auto or switch it off if fidelity matters more than looks. Block-aligned pixel art can be mistaken for compression; set cleanup to Off for it.
+Compared with the previous Restore, the current one has the lower LPIPS on 94–95% of faces (by 0.022–0.026) and the higher identity on 71–99% of them (by 0.029–0.046). The previous one lowered identity relative to no face restoration at all; this one raises it.
+
+Honest notes: the degradations are synthetic and the faces come from one kind of photo (crew portraits), so this is a benchmark of this pipeline against its predecessor, not a promise about your photos. On a *single* image the result can go either way: on one portrait with four degradations the current Restore tied or was slightly worse on perceptual distance in three of four cases, which is why averages over many faces are shown. PSNR/SSIM do not improve in the hardest cases (they penalise any invented detail). **Face restoration invents plausible detail**, so a person's likeness can change slightly: the default blend strength (`--face-strength 0.7`) was chosen because identity and perceptual quality are both flat to best there; lower it, or switch faces off, if fidelity matters more than looks. Block-aligned pixel art can be mistaken for compression; set cleanup to Off for it.
 
 ### Models
 
-All four upscalers ship with the app and run offline, together with the three Restore components (about 115 MB).
+All four upscalers ship with the app and run offline, together with the four Restore components (about 118 MB).
 
 | Model | Scale | Best for | Speed* |
 | --- | --- | --- | --- |
@@ -135,7 +139,7 @@ The Windows (DirectML) and macOS (CoreML) builds are GPU-accelerated with no ext
 
 - **Engine** (`src/engine`): tiled inference with mirrored context and cross-faded overlaps (no visible seams), automatic device selection (DirectML → CUDA → CoreML → CPU) with fallback to smaller tiles and then CPU if a GPU runs out of memory. Videos stream through two ffmpeg processes — decode → model → encode — so no frames are written to disk, the frame rate is preserved and audio is carried over.
 - **App** (`src/main`, `src/renderer`): the UI never touches the filesystem or the network. It refers to files by id, media is served through unguessable tokens, every IPC call is validated, and a strict Content-Security-Policy forbids remote code. The engine runs in its own process, so a crash can't take the window down.
-- **Restore** (`src/engine/restore`): blockiness and softness detectors, YuNet face detection, similarity-transform alignment, GFPGAN restoration, colour matching and mask blending. Optional stages: if one cannot run, the job still finishes and says so.
+- **Restore** (`src/engine/restore`): blockiness and softness detectors, YuNet face detection, similarity-transform alignment, RestoreFormer++ restoration from the source pixels, colour matching and face-parsing mask blending. Optional stages: if one cannot run, the job still finishes and says so.
 - **Models** (`models/`): ONNX files verified by SHA-256 before use. `tools/convert_models.py` rebuilds them from the pinned upstream weights.
 
 ## Development
@@ -148,13 +152,13 @@ npm run pack         # unpacked app in release/   ·   npm run smoke:packaged to
 npm run dist         # installer for the current OS (CI builds all three: see .github/workflows)
 ```
 
-To cut a release, push a tag like `v2.0.0`; GitHub Actions builds the Windows installer and attaches it to the release. (CI and release builds for macOS and Linux are switched off for now; macOS and Linux users can run from source with `npm install && npm start`.)
+To cut a release, push a tag like `v2.3.0`; GitHub Actions writes that version into `package.json`, builds the Windows installer (`LucidFrame-2.3.0-win-x64.exe`) and attaches it to the release. (CI and release builds for macOS and Linux are switched off for now; macOS and Linux users can run from source with `npm install && npm start`.)
 
 ### Where the model files live
 
 The converted `.onnx` files (about 180 MB) are **not in git**: they are assets of a GitHub release named by `"release"` in `models/manifest.json`, and the manifest pins each file's size and SHA-256. `npm run models` (also run automatically by `npm start`, `npm test`, `npm run pack` and CI) downloads whatever is missing, refuses anything whose hash does not match, and leaves no half-written files. CI caches them by manifest hash. Set `LUCIDFRAME_MODELS_URL` to use a mirror.
 
-To change a model: run `tools/convert_models.py --release models-N` (needs Python once; see its header), upload the resulting `.onnx` files as assets of a new release tagged `models-N` (a normal GitHub release; untick "Set as the latest release"), and commit the updated `models/manifest.json`. End users and normal development never need Python.
+To change a model: run `tools/convert_models.py --release models-N` (needs Python once; see its header; the face restorer and face parser are built by `tools/convert_faces.py` instead), upload the resulting `.onnx` files as assets of a new release tagged `models-N` (a normal GitHub release; untick "Set as the latest release"), and commit the updated `models/manifest.json`. The manifest names a single release, so that release must hold **every** file the manifest lists, not only the ones that changed. End users and normal development never need Python.
 
 ## Upgrading from v1
 
@@ -167,7 +171,7 @@ v1 was a Python/FastAPI backend (PyTorch, Real-ESRGAN, GFPGAN) started alongside
 | Models | Real-ESRGAN x4plus/x2plus/anime (2021), GFPGAN | RealPLKSR (2024) and compact models, bundled |
 | Video | Every frame written to PNG, fixed 25 fps | Streamed through ffmpeg, original fps and audio kept |
 | Filters | Sharpen, denoise, brightness, contrast, saturation, presets | Removed — models do the enhancing |
-| Face restore | GFPGAN toggle (PyTorch) | Restore pipeline: GFPGAN 1.4 in ONNX, with face detection and alignment, plus JPEG/blur cleanup |
+| Face restore | GFPGAN toggle (PyTorch) | Restore pipeline: RestoreFormer++ in ONNX, with face detection, alignment and parsing, plus JPEG/blur cleanup |
 | Platforms | Windows only | Windows, macOS (Apple Silicon), Linux |
 
 ## Credits & licenses

@@ -39,8 +39,10 @@ describe("model registry", () => {
       ["dejpeg", "cleanup", "CC-BY-4.0"],
       ["face-detect", "face-detect", "MIT"],
       ["face-restore", "face-restore", "Apache-2.0"],
+      ["face-parse", "face-parse", "MIT"],
     ]);
-    const texts = { "CC-BY-4.0": "CC-BY-4.0.txt", MIT: "YuNet-MIT.txt", "Apache-2.0": "GFPGAN-Apache-2.0.txt" };
+    // each component's licence text is its own licensor's, so they are looked up by component, not by licence name
+    const texts = { dejpeg: "CC-BY-4.0.txt", "face-detect": "YuNet-MIT.txt", "face-restore": "RestoreFormerPlusPlus-Apache-2.0.txt", "face-parse": "BiSeNet-face-parsing-MIT.txt" };
     for (const t of registry.tools) {
       assert.ok(tools.find((x) => x.id === t.id).available, `${t.id} file missing`);
       const file = path.join(defaultModelsDir(), t.file);
@@ -48,7 +50,7 @@ describe("model registry", () => {
       assert.equal(await sha256File(file), t.sha256, `${t.id} sha256`);
       assert.match(t.source.sha256, /^[0-9a-f]{64}$/);
       assert.ok(t.source.revision && t.source.url.startsWith("https://"), `${t.id} must be pinned to an upstream revision`);
-      assert.ok(fs.existsSync(path.join(import.meta.dirname, "..", "licenses", texts[t.license])), `licence text for ${t.id}`);
+      assert.ok(fs.existsSync(path.join(import.meta.dirname, "..", "licenses", texts[t.id])), `licence text for ${t.id}`);
     }
     // models also under CC BY must have the text shipped
     assert.ok(fs.existsSync(path.join(import.meta.dirname, "..", "licenses", "CC-BY-4.0.txt")));

@@ -17,8 +17,11 @@ import {
   isPlausibleRestoration,
   iou,
   keepColours,
+  maskIsPlausible,
   nonMaxSuppression,
   pasteFace,
+  refineMask,
+  restoreFaces,
   similarityTransform,
   warpToCrop,
 } from "../src/engine/restore/faces.js";
@@ -239,6 +242,108 @@ describe("crop, blend and paste", () => {
     assert.ok(mask.every((v) => v >= 0 && v <= 1));
   });
 
+  it("enlarging a small face is smooth: a ramp stays a ramp instead of turning into blocky steps", () => {
+    // a 40 px source with a horizontal ramp, cut into a 512 crop (about 10× magnification)
+    const w = 40;
+    const data = Buffer.alloc(w * w * 3);
+    for (let y = 0; y < w; y++) for (let x = 0; x < w; x++) data.fill(Math.round((x / (w - 1)) * 255), (y * w + x) * 3, (y * w + x) * 3 + 3);
+    const m = { a: 10, b: 0, tx: 0, ty: 0 };
+    const crop = warpToCrop({ data, width: w, height: w }, m);
+    // well inside the picture, neighbouring crop pixels differ by a tenth of a source step (0.65 levels), never a whole one
+    let worstStep = 0;
+    for (let x = 100; x < 350; x++) worstStep = Math.max(worstStep, Math.abs(crop[256 * CROP + x + 1] - crop[256 * CROP + x]) * 255);
+    assert.ok(worstStep < 1.5, `largest jump between neighbouring crop pixels ${worstStep.toFixed(2)} levels`);
+    // and it still lands on the right value: crop x 300 reads source x 30, whose ramp value is known
+    const expected = (30 / (w - 1)) * 255;
+    assert.ok(Math.abs(crop[256 * CROP + 300] * 255 - expected) < 1.5, `got ${(crop[256 * CROP + 300] * 255).toFixed(1)}, expected ${expected.toFixed(1)}`);
+  });
+
+  it("refineMask pulls the face outline in, feathers it and fades out at the crop border", () => {
+    const raw = new Float32Array(CROP * CROP);
+    for (let y = 100; y < 400; y++) raw.fill(1, y * CROP + 120, y * CROP + 390); // a rectangular "face"
+    const mask = refineMask(raw);
+    const at = (x, y) => mask[y * CROP + x];
+    assert.ok(at(256, 250) > 0.999, "the middle of the face is fully replaced");
+    assert.ok(at(60, 250) === 0 && at(450, 250) === 0, "nothing outside the face");
+    assert.ok(at(120, 250) < 0.4, `at the face's own outline the mask is under half: ${at(120, 250).toFixed(2)}`);
+    assert.ok(at(100, 250) < 0.1, "and it is nearly gone a little outside, where hair and background start");
+    assert.ok(at(120, 250) < at(135, 250) && at(135, 250) < at(150, 250) && at(150, 250) < 1, "a smooth ramp, not a hard edge");
+    assert.ok(mask.every((v) => v >= 0 && v <= 1));
+    const full = refineMask(new Float32Array(CROP * CROP).fill(1));
+    assert.ok(full[0] < 0.05 && full[10 * CROP + 256] < 0.2 && full[256 * CROP + 256] > 0.99, "faded at the very border of the crop");
+  });
+
+  it("only trusts a mask that covers a believable share of the crop", () => {
+    const share = (f) => new Float32Array(1000).fill(0).fill(1, 0, Math.round(1000 * f));
+    assert.equal(maskIsPlausible(share(0)), false, "no face found");
+    assert.equal(maskIsPlausible(share(0.03)), false, "a speck");
+    assert.equal(maskIsPlausible(share(0.3)), true, "a typical face fills about a third of the aligned crop");
+    assert.equal(maskIsPlausible(share(0.95)), false, "everything is not a face");
+  });
+
+  describe("restoreFaces", () => {
+    const FACE_KPS = FACE_TEMPLATE.map(([x, y]) => [x * 0.5 + 100, y * 0.5 + 80]); // a face half the crop's size, at (100, 80)
+    const flat = (v, w, h) => ({ data: Buffer.alloc(w * h * 3, v), width: w, height: h });
+    /** A restorer that records its crop and adds fine stripes (detail) without changing the tone, as a real one does. */
+    const striper = () => {
+      const seen = [];
+      return {
+        seen,
+        infer: async (chw) => {
+          seen.push(chw);
+          const out = Float32Array.from(chw);
+          for (let c = 0; c < 3; c++) for (let y = 0; y < CROP; y++) for (let x = 0; x < CROP; x++) out[c * CROP * CROP + y * CROP + x] += (x >> 2) & 1 ? 0.25 : -0.25;
+          return out;
+        },
+      };
+    };
+    // Is the image changed near the spot where crop pixel (cx, cy) lands, for a face whose landmarks are `kps`?
+    const changedAt = (img, kps, cx, cy) => {
+      const m = similarityTransform(kps, FACE_TEMPLATE);
+      const [x, y] = applyTransform(invertTransform(m), cx, cy);
+      let worst = 0;
+      for (let i = -6; i <= 6; i++) worst = Math.max(worst, Math.abs(img.data[(Math.round(y) * img.width + Math.round(x) + i) * 3] - 128));
+      return worst > 20;
+    };
+
+    it("cuts the crop from the source pixels when they are given, and pastes into the upscaled image", async () => {
+      const source = flat(40, 400, 300); // dark source
+      const out = flat(200, 400, 300); // lighter "upscaled" picture (the kps are shared, so the geometry is the same)
+      const r = striper();
+      await restoreFaces(out, [{ kps: FACE_KPS, srcKps: FACE_KPS }], r, { source, strength: 1 });
+      assert.ok(Math.abs(r.seen[0][100] * 255 - 40) < 1, `the restorer saw ${(r.seen[0][100] * 255).toFixed(0)}, the source was 40`);
+      const r2 = striper();
+      await restoreFaces(flat(200, 400, 300), [{ kps: FACE_KPS }], r2, { strength: 1 });
+      assert.ok(Math.abs(r2.seen[0][100] * 255 - 200) < 1, "without a source it reads the image itself, as before");
+    });
+
+    it("blends through the parsing mask, not the ellipse, when a plausible one is available", async () => {
+      const img = flat(128, 400, 300);
+      // 1 on the left part of the crop only: x 30–250, y 60–450 (a third of the crop, like a real face)
+      const parser = { mask: async () => { const m = new Float32Array(CROP * CROP); for (let y = 60; y < 450; y++) m.fill(1, y * CROP + 30, y * CROP + 250); return m; } };
+      await restoreFaces(img, [{ kps: FACE_KPS }], striper(), { strength: 1, parser });
+      assert.ok(changedAt(img, FACE_KPS, 140, 256), "inside the parsed face the restoration is pasted");
+      assert.equal(changedAt(img, FACE_KPS, 380, 256), false, "outside the parsed face nothing is pasted (the ellipse would have painted here)");
+    });
+
+    it("falls back to the ellipse when the parser fails, and stops asking it", async () => {
+      let asked = 0;
+      const parser = { mask: async () => (asked++, Promise.reject(new Error("parser exploded"))) };
+      const img = flat(128, 600, 300);
+      const second = FACE_KPS.map(([x, y]) => [x + 250, y]);
+      const n = await restoreFaces(img, [{ kps: FACE_KPS }, { kps: second }], striper(), { strength: 1, parser });
+      assert.equal(n, 2);
+      assert.equal(asked, 1, "a broken parser is not retried for every face");
+      assert.ok(changedAt(img, FACE_KPS, 256, 300) && changedAt(img, second, 256, 300), "the ellipse still pasted both faces");
+    });
+
+    it("ignores a parser that finds nothing", async () => {
+      const img = flat(128, 400, 300);
+      await restoreFaces(img, [{ kps: FACE_KPS }], striper(), { strength: 1, parser: { mask: async () => new Float32Array(CROP * CROP) } });
+      assert.ok(changedAt(img, FACE_KPS, 256, 300), "an empty mask must not erase the restoration");
+    });
+  });
+
   it("keepColours keeps detail from the restored face and tone from the original", () => {
     const n = 128;
     const original = new Float32Array(3 * n * n).fill(0.4);
@@ -420,6 +525,22 @@ describe("runImagePipeline (fake upscaler)", () => {
     const r = await run(up, mid, { faces: "off" });
     assert.ok(r.restore.cleanup.strength > 0.5 && r.restore.cleanup.strength < 1);
     assert.ok(r.cleaned);
+  });
+
+  it("hands the restorer the source picture and each face's source landmarks", async () => {
+    const img = { data: Buffer.alloc(300 * 200 * 3, 100), width: 300, height: 200 };
+    const up = fake({ faces: [face(80)] });
+    let seen;
+    const restore = up.restoreFaces;
+    up.restoreFaces = async function (result, list, opts) {
+      seen = { result, list, opts };
+      return restore.call(this, result, list, opts);
+    };
+    await run(up, img, { cleanup: "off" });
+    assert.equal(seen.opts.source, img, "with no cleanup the source is the input image itself");
+    assert.deepEqual(seen.list[0].srcKps, face(80).kps, "landmarks in source pixels, next to the ones in output pixels");
+    assert.notDeepEqual(seen.list[0].kps, seen.list[0].srcKps);
+    assert.equal(seen.result.width, 1200);
   });
 
   it("restores faces by size, maps landmarks to output pixels and skips weak or tiny detections", async () => {
