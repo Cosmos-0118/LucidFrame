@@ -148,7 +148,7 @@ npm run pack         # unpacked app in release/   ·   npm run smoke:packaged to
 npm run dist         # installer for the current OS (CI builds all three: see .github/workflows)
 ```
 
-To cut a release, push a tag like `v2.0.0`; GitHub Actions builds the Windows, macOS and Linux installers and attaches them to the release.
+To cut a release, push a tag like `v2.0.0`; GitHub Actions builds the Windows installer and attaches it to the release. (CI and release builds for macOS and Linux are switched off for now; macOS and Linux users can run from source with `npm install && npm start`.)
 
 ### Where the model files live
 
